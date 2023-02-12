@@ -1,0 +1,8 @@
+torch
+torchvision
+torchaudio
+pytorch-lightning
+spatialmath-python
+wandb
+ray[tune]
+pytorch-lightning-bolts

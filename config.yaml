@@ -1,0 +1,9 @@
+visual_embedding_dim: 2394
+proprio_dim: 13
+action_dim: 7
+lr: 2e-4
+weight_decay: 2e-7
+batch_size: 16
+sequence_len: 30
+num_epochs: 1000
+
