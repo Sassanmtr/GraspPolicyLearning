@@ -34,7 +34,7 @@ class TrajectoriesDataset(Dataset):
         image_data.pop()
         joint_data.pop()
         ee_pose_data = np.array(ee_pose_data)
-        action = ee_pose_data[:-1] - ee_pose_data[1:]
+        action = ee_pose_data[1:] - ee_pose_data[:-1] 
         return image_data, joint_data, action
 
     def data_collector(self, rgb_dir, step_index):

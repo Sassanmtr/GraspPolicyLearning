@@ -16,14 +16,11 @@ def train(config, data_dir):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("device: ", device)
     datamodule = BCDataModule(data_dir, config, device)
-    # testloader = datamodule.test_dataloader()
     bcnet = BehaviorCloningNet(config, device)
     wb_logger = pl_loggers.WandbLogger(save_dir="./wandb_logs")
     trainer = Trainer(logger=wb_logger, deterministic=True, max_epochs=config["num_epochs"], accelerator='gpu', devices=1)
     trainer.fit(model=bcnet, datamodule=datamodule)
-    # trainer.save_checkpoints()
-    # trainer.test(dataloaders=datamodule)
-    # trainer.test(ckpt_path="best", dataloaders=testloader) 
+    trainer.test(dataloaders=datamodule, ckpt_path="best")
 
 # def train_tune(config, epochs=200):
 #     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -37,7 +34,7 @@ def train(config, data_dir):
 
 
 if __name__ == "__main__":
-    data_dir = "/home/mokhtars/Documents/bc_network/bc_network/trajecories"
+    data_dir = "/home/mokhtars/Documents/bc_network/bc_network/trajectories"
     with open('config.yaml') as f:
         config = yaml.load(f, Loader=SafeLoader)
         print("config: ", config)  
@@ -61,10 +58,8 @@ if __name__ == "__main__":
     #     resources_per_trial={"cpu":1, "gpu":1},
     #     metric="loss",
     #     mode="min",
-    #     scheduler=scheduler,
     #     config=hp_config,
-    #     num_samples=2,
-    #     name="asha")
+    #     num_samples=2)
 
     # print("Best hyperparameters found were: ", analysis.best_config)
 

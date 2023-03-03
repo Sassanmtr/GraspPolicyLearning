@@ -64,7 +64,7 @@ class BehaviorCloningNet(pl.LightningModule):
         loss = self.forward(
             img_obs, joint_obs, action
         )
-        self.log_dict({"loss":loss})
+        self.log_dict({"train_loss":loss})
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -74,6 +74,16 @@ class BehaviorCloningNet(pl.LightningModule):
         )
 
         self.log_dict({"val_loss":loss})
+
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        img_obs, joint_obs, action = batch
+        loss = self.forward(
+            img_obs, joint_obs, action
+        )
+
+        self.log_dict({"test_loss":loss})
 
         return loss
 
