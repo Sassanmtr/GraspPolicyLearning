@@ -1,5 +1,5 @@
-lightning_logs
-wandb_logs
+collected_data
+wandb
 trajectories
 trajectoriesOR
 
