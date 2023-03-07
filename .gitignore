@@ -2,6 +2,7 @@ collected_data
 wandb
 trajectories
 trajectoriesOR
+saved_models
 
 
 # Byte-compiled / optimized / DLL files

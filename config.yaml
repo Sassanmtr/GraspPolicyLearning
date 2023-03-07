@@ -1,10 +1,10 @@
 visual_embedding_dim: 2394
 proprio_dim: 13
-action_dim: 6
+action_dim: 7
 learning_rate: 1e-5
 weight_decay: 3e-4
 batch_size: 1
 sequence_len: 10
-num_epochs: 100
+num_epochs: 500
 buffer_capacity: 200
-steps: 200
+steps: 5000

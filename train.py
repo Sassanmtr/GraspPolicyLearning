@@ -16,7 +16,7 @@ def train_step(policy, replay_memory, config):
             camera_batch, proprio_batch, action_batch
         )
         print("step {}".format(i))
-        print("loss: {}".format(training_metrics["total_loss"]))
+        print("loss: {}".format(training_metrics["total loss"]))
         wandb.log(training_metrics)
     return
 

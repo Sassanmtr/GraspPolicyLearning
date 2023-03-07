@@ -42,15 +42,24 @@ class ReplayBuffer(Dataset):
         image_data = []
         joint_data = []
         ee_pose_data = []
+        gripper_pos = []
+        action = []
         for i in range(self.sequence_len + 1):
             image_step, joint_step, ee_pose_step = self.data_collector(rgb_dir, step_index + i)
             image_data.append(image_step)
             joint_data.append(torch.tensor(joint_step))
             ee_pose_data.append(ee_pose_step)
+            gripper_pos.append(joint_step[-2] + joint_step[-1])
         image_data.pop()
         joint_data.pop()
+        gripper_pos = gripper_pos[1:]
         ee_pose_data = np.array(ee_pose_data)
-        action = ee_pose_data[1:] - ee_pose_data[:-1] 
+        old_action = ee_pose_data[1:] - ee_pose_data[:-1]
+        for j in range(len(gripper_pos)):
+            if gripper_pos[j] > 0.04:
+                action.append(np.concatenate((old_action[j], np.array([0.8]).reshape(1,1)), axis=1))
+            else:
+                action.append(np.concatenate((old_action[j], np.array([-0.8]).reshape(1,1)), axis=1))
         return torch.stack(image_data), torch.stack(joint_data), torch.tensor(action)
 
     def data_collector(self, rgb_dir, step_index):

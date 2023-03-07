@@ -49,6 +49,7 @@ class Policy(nn.Module):
     def forward(self, camera_obs_traj, proprio_obs_traj, action_traj):
         losses_t = []
         losses_r = []
+        losses_g = []
         lstm_state = None
         for idx in range(len(proprio_obs_traj)):
             mu, lstm_state = self.forward_step(
@@ -56,15 +57,20 @@ class Policy(nn.Module):
             )
             distribution_t = Normal(mu[:,:,:3], self.std)
             distribution_r = Normal(mu[:,:,3:-1], self.std)
+            distribution_g = Normal(mu[:,:,-1], self.std[-1])
             log_prob_t = distribution_t.log_prob(action_traj[idx][:,:,:3].permute(1, 0, 2))
             log_prob_r = distribution_r.log_prob(action_traj[idx][:,:,3:-1].permute(1, 0, 2))
+            log_prob_g = distribution_g.log_prob(action_traj[idx][:,:,-1].permute(1, 0))
             loss_t = -log_prob_t
             loss_r = -log_prob_r
+            loss_g = -log_prob_g
             losses_t.append(loss_t)
             losses_r.append(loss_r)
+            losses_g.append(loss_g)
         total_loss_t = torch.cat(losses_t).mean()
         total_loss_r = torch.cat(losses_r).mean()
-        return total_loss_t, total_loss_r
+        total_loss_g = torch.cat(losses_g).mean()
+        return total_loss_t, total_loss_r, total_loss_g
 
     def update_params(
         self, camera_obs_traj, proprio_obs_traj, action_traj
@@ -73,11 +79,11 @@ class Policy(nn.Module):
         proprio_obs = proprio_obs_traj.to(self.device)
         action = action_traj.to(self.device)
         self.optimizer.zero_grad()
-        loss_t, loss_r = self.forward(camera_obs, proprio_obs, action)
-        total_loss = loss_t + loss_r
+        loss_t, loss_r , loss_g= self.forward(camera_obs, proprio_obs, action)
+        total_loss = loss_t + loss_r + (loss_g/100)
         total_loss.backward()
         self.optimizer.step()
-        training_metrics = {"total loss": total_loss, "translation loss": loss_t, "rotation loss": loss_r}
+        training_metrics = {"total loss": total_loss, "translation loss": loss_t, "rotation loss": loss_r, "gripper loss": loss_g}
         return training_metrics
 
     def predict(self, camera_obs, proprio_obs, lstm_state):

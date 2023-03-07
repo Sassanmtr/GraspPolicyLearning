@@ -1,4 +1,5 @@
 import sys
+sys.path.append('/home/mokhtars/Documents/bc_network/bc_network')
 import os
 from pathlib import Path
 from omni.isaac.kit import SimulationApp
@@ -9,7 +10,7 @@ from spatialmath.base import trnorm
 from helpers import *
 import torch
 import wandb
-from bc_network.bcnet import Policy
+from bcnet import Policy
 
 
 HOME = str(Path.home())
@@ -202,7 +203,7 @@ if __name__ == "__main__":
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     policy = Policy(network_config, device)
-    model_path = "data/_policy.pt"
+    model_path = "saved_models/policy.pt"
     policy.load_state_dict(torch.load(model_path))
 
     simulation_main(simulation_config, policy)
