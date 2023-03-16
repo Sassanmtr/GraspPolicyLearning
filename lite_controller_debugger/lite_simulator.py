@@ -1,17 +1,12 @@
 import sys
 sys.path.append('/home/mokhtars/Documents/bc_network/bc_network')
-import os
 from pathlib import Path
 from omni.isaac.kit import SimulationApp
 import carb
 import numpy as np
-import spatialmath as sm
-from spatialmath.base import trnorm
 from helpers import *
 import torch
-import wandb
 from bcnet import Policy
-
 
 HOME = str(Path.home())
 print("HOME: ", HOME)

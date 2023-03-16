@@ -27,8 +27,11 @@ class Policy(nn.Module):
             weight_decay=float(config["weight_decay"]),
         )
         # self.std = 0.1 * torch.ones(config["action_dim"], dtype=torch.float32)
-        self.std = 0.1 * torch.ones(3, dtype=torch.float32)
-        self.std = self.std.to(self.device)
+        self.std1 = 0.1 * torch.ones(3, dtype=torch.float32)
+        self.std2 = 0.1 * torch.ones(3, dtype=torch.float32) # change it to 3 for Euler angles (4 for quaternion)
+        self.std1 = self.std1.to(self.device)
+        self.std2 = self.std2.to(self.device)
+
         return
 
     @property
@@ -55,9 +58,9 @@ class Policy(nn.Module):
             mu, lstm_state = self.forward_step(
                 camera_obs_traj[idx], proprio_obs_traj[idx], lstm_state
             )
-            distribution_t = Normal(mu[:,:,:3], self.std)
-            distribution_r = Normal(mu[:,:,3:-1], self.std)
-            distribution_g = Normal(mu[:,:,-1], self.std[-1])
+            distribution_t = Normal(mu[:,:,:3], self.std1)
+            distribution_r = Normal(mu[:,:,3:-1], self.std2)
+            distribution_g = Normal(mu[:,:,-1], self.std1[-1])
             log_prob_t = distribution_t.log_prob(action_traj[idx][:,:,:3].permute(1, 0, 2))
             log_prob_r = distribution_r.log_prob(action_traj[idx][:,:,3:-1].permute(1, 0, 2))
             log_prob_g = distribution_g.log_prob(action_traj[idx][:,:,-1].permute(1, 0))
@@ -80,7 +83,7 @@ class Policy(nn.Module):
         action = action_traj.to(self.device)
         self.optimizer.zero_grad()
         loss_t, loss_r , loss_g= self.forward(camera_obs, proprio_obs, action)
-        total_loss = loss_t + loss_r + (loss_g/100)
+        total_loss = loss_t + loss_r #+ (loss_g/500)
         total_loss.backward()
         self.optimizer.step()
         training_metrics = {"total loss": total_loss, "translation loss": loss_t, "rotation loss": loss_r, "gripper loss": loss_g}

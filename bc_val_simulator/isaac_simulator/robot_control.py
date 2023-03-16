@@ -97,7 +97,9 @@ class ReachLocation:
     def move(self, goal_pose):
         self.robot_interface.update_robot_model()
         self.grasp_pose_reached, qd = ee_pose_control(self.robot_interface, goal_pose)
+        qd *= 10
         self.robot_interface.move_joints(qd)
+
         return qd
 
 

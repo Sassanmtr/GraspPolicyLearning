@@ -4,6 +4,7 @@ import random
 import numpy as np
 from PIL import Image
 from collections import deque
+from scipy.spatial.transform import Rotation
 import torch
 from torchvision import transforms
 from torch.utils.data import Dataset
@@ -54,12 +55,24 @@ class ReplayBuffer(Dataset):
         joint_data.pop()
         gripper_pos = gripper_pos[1:]
         ee_pose_data = np.array(ee_pose_data)
+
         old_action = ee_pose_data[1:] - ee_pose_data[:-1]
         for j in range(len(gripper_pos)):
             if gripper_pos[j] > 0.04:
                 action.append(np.concatenate((old_action[j], np.array([0.8]).reshape(1,1)), axis=1))
             else:
                 action.append(np.concatenate((old_action[j], np.array([-0.8]).reshape(1,1)), axis=1))
+        
+        # for i in range(ee_pose_data.shape[0] - 1):
+        #     diff_pos = ee_pose_data[i + 1,:,:3] - ee_pose_data[i,:,:3]
+        #     # Computing the relative quaternion
+        #     diff_rel = Rotation.from_quat(ee_pose_data[i,:,3:]).inv() * Rotation.from_quat(ee_pose_data[i+1,:,3:])
+        #     old_action = np.concatenate((diff_pos, diff_rel.as_quat()), axis=1)
+        #     if gripper_pos[i] > 0.04:
+        #         action.append(np.concatenate((old_action, np.array([0.8]).reshape(1,1)), axis=1))
+        #     else:
+        #         action.append(np.concatenate((old_action, np.array([-0.8]).reshape(1,1)), axis=1))
+        
         return torch.stack(image_data), torch.stack(joint_data), torch.tensor(action)
 
     def data_collector(self, rgb_dir, step_index):
@@ -80,6 +93,10 @@ class ReplayBuffer(Dataset):
         current_ee_pose_SM = pose_file.item()[step_index]["ee_pose"]
         t_ee_pose = current_ee_pose_SM.t.reshape(1, 3)
         R_ee_pose = current_ee_pose_SM.R
+        # # for Euler start removing here
+        # r_ee_matrix = Rotation.from_matrix(R_ee_pose)
+        # r_ee_quat = r_ee_matrix.as_quat()
+        # # finish removing here and uncomment the below line and change the second element of current_ee_pose
         R_ee_pose = rotation_angles(R_ee_pose).reshape(1, 3)
         current_ee_pose = np.concatenate((t_ee_pose, R_ee_pose), axis=-1)
 
@@ -125,3 +142,34 @@ def rotation_angles(matrix):
     theta3 = np.arctan(-r12 / r11)
 
     return np.array((theta1, theta2, theta3))
+
+
+
+def quaternion_difference(q1, q2):
+    """
+    Calculate the difference in orientation between two quaternions
+    """
+    # Normalize the quaternions to ensure they have unit magnitude
+    q1 = q1 / np.linalg.norm(q1)
+    q2 = q2 / np.linalg.norm(q2)
+    
+    # Calculate the dot product between the two quaternions
+    dot_product = np.dot(q1, q2)
+    
+    # If the dot product is negative, the quaternions are on opposite sides of the rotation
+    # sphere and the difference is greater than pi radians
+    if dot_product < 0:
+        q1 = -q1
+        dot_product = -dot_product
+    
+    # Calculate the angle between the quaternions
+    angle = 2 * np.arccos(dot_product)
+    
+    # Calculate the axis of rotation between the quaternions
+    axis = np.cross(q1, q2)
+    axis = axis / np.linalg.norm(axis)
+    
+    # Calculate the quaternion that represents the difference in orientation
+    diff_quat = np.array([np.cos(angle/2), axis[0]*np.sin(angle/2), axis[1]*np.sin(angle/2), axis[2]*np.sin(angle/2)])
+    
+    return diff_quat
