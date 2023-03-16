@@ -19,3 +19,8 @@ The trained models are saved in this directory
 # train.py
 The file to train the network
 
+# data_collector_lite_controller
+The file that collects data using the lite controller
+
+# fmm-control-lite
+The lite controller
