@@ -1,0 +1,5 @@
+*.thumbs
+*.egg-info
+*.etli
+*.pyc
+**/__pycache__/**
