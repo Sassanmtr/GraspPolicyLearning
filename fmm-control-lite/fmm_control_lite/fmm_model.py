@@ -68,7 +68,7 @@ class FmmModel(ERobot):
         )
         self.qd_lb = -self.qd_ub
         # Time constant, i.e. how much time to reach velocity limits [seconds]
-        self.qdd_tau = 0.25
+        self.qdd_tau = 0.05
         self.qdd_ub = self.qd_ub / self.qdd_tau
         self.qdd_lb = self.qd_lb / self.qdd_tau
 

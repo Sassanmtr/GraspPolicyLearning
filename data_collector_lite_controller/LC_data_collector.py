@@ -304,7 +304,7 @@ def main(config):
                 print("initial_distance: ", initial_distance)
 
                 if (
-                    initial_distance <= 0.041
+                    initial_distance <= 0.01
                 ):  # If end effectors are close enough to the target initial pose
                     print("Gripper is in the initial grasping pose!")
                     selected_grasp = closest_grasp(

@@ -38,7 +38,10 @@ class FmmIsaacInterface:
         self.robot_sim.set_joint_positions(np.append(self.robot_model.q_ready, [0.05, 0.05]))
         _, kds_gains = self.robot_sim.get_articulation_controller().get_gains()
         kds_gains[3] *= 10
-        self.robot_sim.get_articulation_controller().set_gains(kds=kds_gains)
+        kds_gains[4:] = np.array([600000.,  60000., 300000.,  30000.,   3000.,   3000.,   3000., 1000.,   1000.])
+        kds_gains[4:] *= 10
+        kps_gains = np.zeros_like(kds_gains)
+        self.robot_sim.get_articulation_controller().set_gains(kps=kps_gains, kds=kds_gains)
 
         # # Wrist Camera Initialization
         camera_prim = prims.create_prim(
@@ -141,7 +144,9 @@ class FmmIsaacInterface:
 
     def move_joints(self, qd):
         action = ArticulationAction(
+            joint_positions=None,
             joint_velocities=qd,
+            joint_efforts=qd*100,
             joint_indices=list(range(self.robot_model.n)),
         )
         self.robot_sim.apply_action(action)
