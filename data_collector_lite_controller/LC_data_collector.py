@@ -1,5 +1,4 @@
 import sys
-sys.path.append('/home/mokhtars/Documents/bc_network/fmm-control-lite/fmm_control_lite')
 import os
 from pathlib import Path
 from omni.isaac.kit import SimulationApp
@@ -14,6 +13,7 @@ from PIL import Image
 import cv2
 import shutil
 import time
+
 
 HOME = str(Path.home())
 print("HOME: ", HOME)
@@ -251,9 +251,9 @@ def main(config):
     #---------------
 
     while simulation_app.is_running():
+        start_time = time.time()
         my_world.step(render=True)
         rate.sleep()
-        start_time = time.time()
         if my_world.is_playing():
             if my_world.current_time_step_index == 0:
                 my_world.reset()
@@ -282,17 +282,17 @@ def main(config):
                     os.getcwd() + "/collected_data",
                     "traj{}".format(success_counter),
                 )
-                os.mkdir(traj_path)
+                os.makedirs(traj_path, exist_ok=True)
                 rgb_path = os.path.join(
                     os.getcwd() + "/collected_data",
                     "traj{}/rgb".format(success_counter),
                 )
-                os.mkdir(rgb_path)
+                os.makedirs(rgb_path, exist_ok=True)
                 depth_path = os.path.join(
                     os.getcwd() + "/collected_data",
                     "traj{}/depth".format(success_counter),
                 )
-                os.mkdir(depth_path)
+                os.makedirs(depth_path, exist_ok=True)
 
                 pose_dict_name = "pose{}".format(success_counter)
                 pose_dict_name = {}
@@ -398,14 +398,14 @@ def main(config):
 
 
 if __name__ == "__main__":
+    base_path  = Path(__file__).parents[1].resolve()
+    sys.path.append(str(base_path / "fmm-control-lite/fmm_control_lite"))
+
     config = {
-        "model_path": HOME + "/Documents/isaac-fmm/models/fmm_full.usd",
-        "object_path": HOME
-        + "/Documents/bc_network/data_collector/imitation_learning/bowl/simple_bowl.usd",
+        "model_path": str(base_path / "bc_files/fmm.usd"),
+        "object_path": str(base_path / "bc_files/simple_bowl.usd"),
         "fps": 40,
-        "mesh_dir": HOME
-        + "/Documents/bc_network/data_collector/imitation_learning/bowl/bowl.h5",
-        "cube_dir": HOME
-        + "/Documents/bc_network/data_collector/imitation_learning/cracker.usd",
+        "mesh_dir": str(base_path / "bc_files/bowl.h5"),
+        "cube_dir": str(base_path / "bc_files/cracker.usd"),
     }
     main(config)

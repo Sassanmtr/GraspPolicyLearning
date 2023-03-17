@@ -42,7 +42,6 @@ class FmmQPControl:
     def wTeegoal_2_qd(self, wTeegoal):
         self.robot_interface.update_robot_model()
         wTee = self.robot.fkine(self.robot.q)
-        print("self.robot.q= ", self.robot.q)
         eeTeegoal = wTee.inv() * wTeegoal
         qd, distance = self.eeTeegoal_2_qd(eeTeegoal)
         self.robot_interface.move_joints(qd)
