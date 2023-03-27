@@ -1,5 +1,4 @@
 import sys
-sys.path.append('/home/mokhtars/Documents/bc_network/fmm-control-lite/fmm_control_lite')
 import os
 from pathlib import Path
 from omni.isaac.kit import SimulationApp
@@ -17,30 +16,6 @@ import time
 
 HOME = str(Path.home())
 print("HOME: ", HOME)
-
-class SteadyRate:
-    """ Maintains the steady cycle rate provided on initialization by adaptively sleeping an amount
-    of time to make up the remaining cycle time after work is done.
-
-    Usage:
-
-    rate = SteadyRate(rate_hz=60.)
-    while True:
-      app.update() # render/app update call here
-      rate.sleep()  # Sleep for the remaining cycle time.
-
-    """
-    def __init__(self, rate_hz):
-        self.rate_hz = rate_hz
-        self.dt = 1.0 / rate_hz
-        self.last_sleep_end = time.time()
-
-    def sleep(self):
-        work_elapse = time.time() - self.last_sleep_end
-        sleep_time = self.dt - work_elapse
-        if sleep_time > 0.0:
-            time.sleep(sleep_time)
-        self.last_sleep_end = time.time()
 
 
 def mesh_data(mesh_dir):
@@ -143,19 +118,6 @@ def initial_object_pos_selector():
     return area, object_pose
 
 
-def grasp_obj(robot_interface, grasp_counter):
-    robot_interface.close_gripper()
-    grasp_counter += 1
-    obj_grasped = True if grasp_counter > 20 else False
-    return obj_grasped
-
-def pick_pose(robot):
-    last_ee_pose = robot.fkine(robot.q)
-    desired_pos = last_ee_pose.t + [0, 0, 0.3]
-    vertical_grasp = sm.SO3(np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]]))
-    postgrasp_pose = sm.SE3.Rt(vertical_grasp, desired_pos)
-    return postgrasp_pose
-
 def main(config):
     simulation_app = SimulationApp({"headless": False})
     from omni.isaac.core import World
@@ -165,9 +127,10 @@ def main(config):
     from omni.isaac.core.utils.nucleus import get_assets_root_path
     from omni.physx.scripts import utils
     import omni.usd
-    from fmm_isaac import FmmIsaacInterface
-    from fmm_control import FmmQPControl
-
+    from isaac_utils.fmm_isaac import FmmIsaacInterface
+    from isaac_utils.robot_control import PickAndPlace, ReachLocation
+    # import omni.physx.bindings._physx as physx_settings_bindings
+    
 
     assets_root_path = get_assets_root_path()
     if assets_root_path is None:
@@ -177,10 +140,13 @@ def main(config):
 
     # Initialize World
     world_settings = {
-        "stage_units_in_meters": 1.0
+        "stage_units_in_meters": 1.0,
     }
     my_world = World(**world_settings)
+    # my_world._time_steps_per_second = config["fps"]
+    # my_world._fsm_update_rate = config["fps"]
     my_world.scene.add_default_ground_plane()
+    # my_world.physx_settings_bindings.SETTING_MIN_FRAME_RATE: 60
 
     # Initialize Robot
     asset_path = config["model_path"]
@@ -227,27 +193,35 @@ def main(config):
 
     my_world.reset()
     robot_interface = FmmIsaacInterface(robot_sim)
-    robot = robot_interface.robot_model
-    lite_controller = FmmQPControl(dt=(1.0 / config["fps"]), fmm_mode="no-tower", robot=robot, robot_interface=robot_interface)
+    initial_controller = ReachLocation(robot_interface)
+    # target_pose = gripper_inital_point_selector()
+    final_controller = PickAndPlace(robot_interface)
 
     navigation_flag = False
     pick_and_place_flag = True
-    grasp_flag = True
+    robot = robot_interface.robot_model
 
     # Start simulation
     my_world.reset()
     my_world.initialize_physics()
+    # def step_callback(step_size):
+    #     print("simulate with step: ", step_size)
+    #     return
+
+    # def render_callback(event):
+    #     print("update app with step: ", event.payload["dt"])
+
+    # my_world.add_physics_callback("physics_callback", step_callback)
+    # my_world.add_render_callback("render_callback", render_callback)
+    # my_world.stop()
     my_world.play()
-    nr_traj = 1
+    nr_traj = 5
 
     success_counter = 0
     failure_counter = 0
     step_counter = 0
-
-    #-----sleep-----
-    # rate = SteadyRate(config["fps"])
-    #---------------
-    my_world.set_simulation_dt(physics_dt=1.0 / 40.0, rendering_dt=1.0 / 10000.0)
+    my_world.set_simulation_dt(physics_dt=1.0 / 40.0, rendering_dt=1.0 / 40.0)
+    # simulation_context.set_simulation_dt(physics_dt=1.0 / 40.0, rendering_dt=1.0 / 10000.0)
     while simulation_app.is_running():
         start_time = time.time()
         my_world.step(render=False)
@@ -272,10 +246,10 @@ def main(config):
                 area, new_object_pos = initial_object_pos_selector()
                 gripper_target_pose = gripper_inital_point_selector(area)
                 my_object.set_world_pose(np.array(new_object_pos), [1, 0, 0, 0])
+                final_controller.reset()
                 navigation_flag = True
                 pick_and_place_flag = False
                 step_counter = 0
-                grasp_counter = 0
                 traj_path = os.path.join(
                     os.getcwd() + "/collected_data",
                     "traj{}".format(success_counter),
@@ -297,12 +271,11 @@ def main(config):
             if (
                 navigation_flag
             ):  # Navigate the gripper to the initial pose before starting Pick and Place
-                
-                initial_qd, initial_distance = lite_controller.wTeegoal_2_qd(gripper_target_pose)
-                print("initial_distance: ", initial_distance)
-
+                initial_controller.move(gripper_target_pose)
+                wTe = robot.fkine(robot.q)
+                dist = np.linalg.norm(wTe.t - gripper_target_pose.t)
                 if (
-                    initial_distance <= 0.02
+                    dist <= 0.012
                 ):  # If end effectors are close enough to the target initial pose
                     print("Gripper is in the initial grasping pose!")
                     selected_grasp = closest_grasp(
@@ -327,57 +300,50 @@ def main(config):
                     wTgrasp = wTobj * objTgrasp * graspTgoal * fT
                     print("Final grasp: ", wTgrasp)
                     navigation_flag = False
-
             else:  # Pick and Place is performed
-                current_data = robot_interface.get_camera_data()
-                rgb_im = Image.fromarray(current_data["rgb"][:, :, 0:3])
-                rgb_im.save(
-                    "collected_data/traj{}/rgb/{}.jpeg".format(
-                        success_counter, step_counter
+                if final_controller.save_mode:
+                    current_data = robot_interface.get_camera_data()
+                    rgb_im = Image.fromarray(current_data["rgb"][:, :, 0:3])
+                    rgb_im.save(
+                        "collected_data/traj{}/rgb/{}.jpeg".format(
+                            success_counter, step_counter
+                        )
                     )
-                )
-                depth_im = current_data["depth"]
-                depth_im = (depth_im * 100.0).astype(np.uint16)
-                cv2.imwrite(
-                    "collected_data/traj{}/depth/{}.jpeg".format(
-                        success_counter, step_counter
-                    ),
-                    depth_im,
-                )
-                pose_dict_name[step_counter] = {}
-                pose_dict_name[step_counter]["ee_pose"] = robot.fkine(robot.q)
-                pose_dict_name[step_counter][
-                    "joint_pos"
-                ] = robot_sim.get_joint_positions()
+                    depth_im = current_data["depth"]
+                    depth_im = (depth_im * 100.0).astype(np.uint16)
+                    cv2.imwrite(
+                        "collected_data/traj{}/depth/{}.jpeg".format(
+                            success_counter, step_counter
+                        ),
+                        depth_im,
+                    )
+                    pose_dict_name[step_counter] = {}
+                    pose_dict_name[step_counter]["ee_pose"] = robot.fkine(robot.q)
+                    pose_dict_name[step_counter][
+                        "joint_pos"
+                    ] = robot_sim.get_joint_positions()
 
-                if grasp_flag:
-                    qd, distance = lite_controller.wTeegoal_2_qd(wTgrasp)
-                    # print("gripper_position: ", robot_sim.get_joint_positions()[-2:])
-                    print("Grasp distance: ", distance)
-                    if distance <= 0.015:
-                        obj_grasped = grasp_obj(robot_interface, grasp_counter)
-                        if obj_grasped:
-                            grasp_flag = False
-                else:
-                    postgrasp_pose = pick_pose(robot)
-                    post_qd, final_distance = lite_controller.wTeegoal_2_qd(postgrasp_pose)
-                    print("Final distance: ", final_distance)
-                    if final_distance <= 0.012:
-                        object_height = my_object.get_world_pose()[0][-1]
-                        print("Object_height: ", object_height)
-                        if object_height > 0.65:  # success
-                            np.save(
-                                "collected_data/traj{}/pose.npy".format(success_counter),
-                                pose_dict_name,
-                            )
-                            success_counter += 1
-                            print("success!")
-                        else:
-                            failure_counter += 1
-                            shutil.rmtree(traj_path)
-                            print("Nope!")
-                        pick_and_place_flag = True
-                      
+                final_controller.move(
+                    wTgrasp, observations[my_object.name]["target_position"]
+                )
+                # print("gripper_position: ", robot_sim.get_joint_positions()[-2:])
+                object_height = my_object.get_world_pose()[0][-1]
+                # print("Object_height: ", object_height)
+                if final_controller.done or object_height > 0.65:  # success
+                    if object_height > 0.65:
+                        np.save(
+                            "collected_data/traj{}/pose.npy".format(success_counter),
+                            pose_dict_name,
+                        )
+                        success_counter += 1
+                        print("success!")
+                    else:
+                        failure_counter += 1
+                        shutil.rmtree(traj_path)
+                        print("Nope!")
+                    pick_and_place_flag = True
+
+                    print("success_counter: ", success_counter)
                 step_counter += 1
                 print("step: ", step_counter)
                 if step_counter == 300:  # failure
@@ -385,13 +351,12 @@ def main(config):
                     shutil.rmtree(traj_path)
                     failure_counter += 1
                     pick_and_place_flag = True
-
+                                
         end_time = time.time()
         # rate.sleep()
         # Calculate actual FPS
         fps = 1 / (end_time - start_time)
         print("actual fps: ", fps)
-
     simulation_app.close()
     return
 
@@ -401,10 +366,10 @@ if __name__ == "__main__":
         "model_path": HOME + "/Documents/isaac-fmm/models/fmm_full.usd",
         "object_path": HOME
         + "/Documents/bc_network/data_collector/imitation_learning/bowl/simple_bowl.usd",
-        "fps": 15,
+        "fps": 40,
         "mesh_dir": HOME
         + "/Documents/bc_network/data_collector/imitation_learning/bowl/bowl.h5",
         "cube_dir": HOME
         + "/Documents/bc_network/data_collector/imitation_learning/cracker.usd",
-    }
+    } 
     main(config)

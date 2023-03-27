@@ -159,14 +159,12 @@ class PickAndPlace:
         self.last_pregrasp_pose = wTpregr
         self.robot_interface.update_robot_model()
         reached_flag, qd = ee_pose_control(self.robot_interface, wTpregr)
-        qd = qd / 10
         self.robot_interface.move_joints(qd)
         return reached_flag
 
     def move_to_grasp(self, grasp_pose):
         self.robot_interface.update_robot_model()
         reached_flag, qd = ee_pose_control(self.robot_interface, grasp_pose)
-        qd = qd / 4
         self.robot_interface.move_joints(qd)
         return reached_flag
 
@@ -182,7 +180,6 @@ class PickAndPlace:
         vertical_grasp = sm.SO3(np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]]))
         postgrasp_pose = sm.SE3.Rt(vertical_grasp, desired_pos)
         reached_flag, qd = ee_pose_control(self.robot_interface, postgrasp_pose)
-        qd = qd / 5
         self.robot_interface.move_joints(qd)
         return reached_flag
 

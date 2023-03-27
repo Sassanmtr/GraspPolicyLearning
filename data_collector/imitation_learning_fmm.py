@@ -12,6 +12,7 @@ from spatialmath.base import trnorm
 from PIL import Image
 import cv2
 import shutil
+import time
 
 HOME = str(Path.home())
 print("HOME: ", HOME)
@@ -128,6 +129,8 @@ def main(config):
     import omni.usd
     from isaac_utils.fmm_isaac import FmmIsaacInterface
     from isaac_utils.robot_control import PickAndPlace, ReachLocation
+    # import omni.physx.bindings._physx as physx_settings_bindings
+    # physx_settings_bindings.SETTING_MIN_FRAME_RATE: 60
 
     assets_root_path = get_assets_root_path()
     if assets_root_path is None:
@@ -142,6 +145,8 @@ def main(config):
         "rendering_dt": 1.0 / config["fps"],
     }
     my_world = World(**world_settings)
+    my_world._time_steps_per_second = config["fps"]
+    my_world._fsm_update_rate = config["fps"]
     my_world.scene.add_default_ground_plane()
 
     # Initialize Robot
@@ -200,15 +205,27 @@ def main(config):
     # Start simulation
     my_world.reset()
     my_world.initialize_physics()
+    # def step_callback(step_size):
+    #     print("simulate with step: ", step_size)
+    #     return
+
+    # def render_callback(event):
+    #     print("update app with step: ", event.payload["dt"])
+
+    # my_world.add_physics_callback("physics_callback", step_callback)
+    # my_world.add_render_callback("render_callback", render_callback)
+    # my_world.stop()
     my_world.play()
     nr_traj = 1
 
     success_counter = 0
     failure_counter = 0
     step_counter = 0
-
+    my_world.set_simulation_dt(physics_dt=1.0 / 40.0, rendering_dt=1.0 / 10000.0)
     while simulation_app.is_running():
-        my_world.step(render=True)
+        start_time = time.time()
+        my_world.step(render=False)
+        print("Time step index", my_world.current_time_step_index)
         if my_world.is_playing():
             if my_world.current_time_step_index == 0:
                 my_world.reset()
@@ -277,7 +294,7 @@ def main(config):
                         [[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
                     )
                     fT = sm.SE3(fT)
-                    graspTgoal[2, 3] = 0.1234
+                    graspTgoal[2, 3] = 0.1434
 
                     graspTgoal = sm.SE3(graspTgoal)
                     wTgrasp = wTobj * objTgrasp * graspTgoal * fT
@@ -286,20 +303,26 @@ def main(config):
             else:  # Pick and Place is performed
                 if final_controller.save_mode:
                     current_data = robot_interface.get_camera_data()
-                    rgb_im = Image.fromarray(current_data["rgb"][:, :, 0:3])
-                    rgb_im.save(
-                        "collected_data/traj{}/rgb/{}.jpeg".format(
-                            success_counter, step_counter
-                        )
-                    )
-                    depth_im = current_data["depth"]
-                    depth_im = (depth_im * 100.0).astype(np.uint16)
-                    cv2.imwrite(
-                        "collected_data/traj{}/depth/{}.jpeg".format(
-                            success_counter, step_counter
-                        ),
-                        depth_im,
-                    )
+                    # rgb_im = Image.fromarray(current_data["rgb"][:, :, 0:3])
+                    # rgb_im.save(
+                    #     "collected_data/traj{}/rgb/{}.jpeg".format(
+                    #         success_counter, step_counter
+                    #     )
+                    # )
+
+                    # depth_im = Image.fromarray(current_data["depth"])
+                    # cv2.imwrite(
+                    #     "collected_data/traj{}/depth/{}.jpeg".format(
+                    #         success_counter, step_counter
+                    #     ),
+                    #     depth_im,
+                    # )
+                    rgb_image = cv2.cvtColor(current_data["rgb"][:, :, 0:3], cv2.COLOR_BGR2RGB)
+                    cv2.imwrite("collected_data/traj{}/rgb/{}.png".format(success_counter,
+                         step_counter), rgb_image)
+                    cv2.imwrite("collected_data/traj{}/depth/{}.png".format(success_counter,
+                         step_counter), current_data["depth"])
+
                     pose_dict_name[step_counter] = {}
                     pose_dict_name[step_counter]["ee_pose"] = robot.fkine(robot.q)
                     pose_dict_name[step_counter][
@@ -309,11 +332,11 @@ def main(config):
                 final_controller.move(
                     wTgrasp, observations[my_object.name]["target_position"]
                 )
-                print("gripper_position: ", robot_sim.get_joint_positions()[-2:])
+                # print("gripper_position: ", robot_sim.get_joint_positions()[-2:])
                 object_height = my_object.get_world_pose()[0][-1]
                 print("Object_height: ", object_height)
-                if final_controller.done or object_height > 0.65:  # success
-                    if object_height > 0.65:
+                if final_controller.done or object_height > 0.70:  # success
+                    if object_height > 0.70:
                         np.save(
                             "collected_data/traj{}/pose.npy".format(success_counter),
                             pose_dict_name,
@@ -329,12 +352,16 @@ def main(config):
                     print("success_counter: ", success_counter)
                 step_counter += 1
                 print("step: ", step_counter)
-                if step_counter == 300:  # failure
+                if step_counter == 250:  # failure
                     print("FAILURE")
                     shutil.rmtree(traj_path)
                     failure_counter += 1
                     pick_and_place_flag = True
-
+                                
+        end_time = time.time()
+        # Calculate actual FPS
+        fps = 1 / (end_time - start_time)
+        print("actual fps: ", fps)
     simulation_app.close()
     return
 
@@ -344,10 +371,10 @@ if __name__ == "__main__":
         "model_path": HOME + "/Documents/isaac-fmm/models/fmm_full.usd",
         "object_path": HOME
         + "/Documents/bc_network/data_collector/imitation_learning/bowl/simple_bowl.usd",
-        "fps": 50,
+        "fps": 40,
         "mesh_dir": HOME
         + "/Documents/bc_network/data_collector/imitation_learning/bowl/bowl.h5",
         "cube_dir": HOME
         + "/Documents/bc_network/data_collector/imitation_learning/cracker.usd",
-    }
+    } 
     main(config)
