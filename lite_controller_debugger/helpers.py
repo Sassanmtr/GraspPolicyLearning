@@ -127,7 +127,8 @@ def get_observations(robot, obj):
     }
     return observations
 
-def save_image_update_pose(robot, robot_interface, robot_sim, pose_dict_name, step_counter, traj_counter):    
+def save_image_update_pose(robot, robot_interface, robot_sim, pose_dict_name, step_counter, traj_counter): 
+    #change this function such that save the rgb_im using the imwrite   
     current_data = robot_interface.get_camera_data()
     rgb_im = Image.fromarray(current_data["rgb"][:, :, 0:3])
     rgb_im = (rgb_im * 256.0).astype(np.uint16)
