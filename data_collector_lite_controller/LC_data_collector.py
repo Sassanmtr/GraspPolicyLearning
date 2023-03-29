@@ -165,7 +165,7 @@ def main(config):
     from omni.isaac.core.utils.nucleus import get_assets_root_path
     from omni.physx.scripts import utils
     import omni.usd
-    from fmm_isaac import FmmIsaacInterface
+    from fmm_isaac import FmmIsaacInterface_lite
     from fmm_control import FmmQPControl
 
 
@@ -226,7 +226,7 @@ def main(config):
     print("CHECK mesh: ", my_world.scene.object_exists(name="fancy_bowl"))
 
     my_world.reset()
-    robot_interface = FmmIsaacInterface(robot_sim)
+    robot_interface = FmmIsaacInterface_lite(robot_sim)
     robot = robot_interface.robot_model
     lite_controller = FmmQPControl(dt=(1.0 / config["fps"]), fmm_mode="no-tower", robot=robot, robot_interface=robot_interface)
 

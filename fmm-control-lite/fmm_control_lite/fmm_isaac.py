@@ -7,7 +7,7 @@ from omni.kit.viewport_legacy import get_viewport_interface
 from omni.isaac.range_sensor._range_sensor import acquire_lidar_sensor_interface
 from fmm_model import FmmModel
 
-class FmmIsaacInterface:
+class FmmIsaacInterface_lite:
     """
     robot_sim joint list:
       - 'dummy_x_joint',

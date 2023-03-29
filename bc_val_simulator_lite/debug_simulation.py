@@ -1,4 +1,5 @@
 import sys
+sys.path.append('/home/mokhtars/Documents/bc_network/fmm-control-lite/fmm_control_lite')
 import os
 from pathlib import Path
 from omni.isaac.kit import SimulationApp
@@ -7,8 +8,10 @@ import numpy as np
 import spatialmath as sm
 from spatialmath.base import trnorm
 from debug_helpers import *
-
+import time
 HOME = str(Path.home())
+import cv2
+
 print("HOME: ", HOME)
 
 
@@ -21,8 +24,8 @@ def simulation_main(config, action, ee_info):
     from omni.isaac.core.utils.nucleus import get_assets_root_path
     from omni.physx.scripts import utils
     import omni.usd
-    from isaac_simulator.fmm_isaac import FmmIsaacInterface
-    from isaac_simulator.robot_control import ReachLocation
+    from fmm_isaac import FmmIsaacInterface_lite
+    from fmm_control import FmmQPControl
 
     assets_root_path = get_assets_root_path()
     if assets_root_path is None:
@@ -32,9 +35,7 @@ def simulation_main(config, action, ee_info):
 
     # Initialize World
     world_settings = {
-        "stage_units_in_meters": 1.0,
-        "physics_dt": 1.0 / config["fps"],
-        "rendering_dt": 1.0 / config["fps"],
+        "stage_units_in_meters": 1.0
     }
     my_world = World(**world_settings)
     my_world.scene.add_default_ground_plane()
@@ -81,12 +82,16 @@ def simulation_main(config, action, ee_info):
     print("CHECK mesh: ", my_world.scene.object_exists(name="fancy_bowl"))
 
     my_world.reset()
-    robot_interface = FmmIsaacInterface(robot_sim)
-    initial_controller = ReachLocation(robot_interface)
+    
+    robot_interface = FmmIsaacInterface_lite(robot_sim)
+    robot = robot_interface.robot_model
+    lite_controller = FmmQPControl(dt=(1.0 / config["fps"]), fmm_mode="no-tower", robot=robot, robot_interface=robot_interface)
 
     navigation_flag = False
     pick_and_place_flag = True
-    robot = robot_interface.robot_model
+    
+    target_ee_pose = {}
+    actual_ee_pose = {}
 
     # Start simulation
     my_world.reset()
@@ -94,13 +99,16 @@ def simulation_main(config, action, ee_info):
     my_world.play()
     step_counter = 0
     counter = 0
+    my_world.set_simulation_dt(physics_dt=1.0 / 40.0, rendering_dt=1.0 / 40.0)
     while simulation_app.is_running():
+        start_time = time.time()
         my_world.step(render=True)
+        print("Time step index", my_world.current_time_step_index)
         if my_world.is_playing():
             if my_world.current_time_step_index == 0:
                 my_world.reset()
-            observations = get_observations(robot=robot, obj=my_object)
-
+            if step_counter == 200:
+                break
             if (
                 pick_and_place_flag
             ):  # One trajectory has been finished (successful or failrue) and a new one should start
@@ -113,7 +121,7 @@ def simulation_main(config, action, ee_info):
             if (
                 navigation_flag
             ):  # Navigate the gripper to the initial pose before starting Pick and Place
-                initial_controller.move(gripper_target_pose)
+                lite_controller.wTeegoal_2_qd(gripper_target_pose)
                 wTe = robot.fkine(robot.q)
                 dist = np.linalg.norm(wTe.t - gripper_target_pose.t)
                 if (
@@ -124,19 +132,34 @@ def simulation_main(config, action, ee_info):
                     navigation_flag = False
             else:  # Pick and Place is performed
                 # current_ee_pose = ee_info[step_counter]
+
+                # current_data = robot_interface.get_camera_data()
+                # rgb_image = cv2.cvtColor(current_data["rgb"][:, :, 0:3], cv2.COLOR_BGR2RGB)
+                # cv2.imwrite("collected_data/traj{}/rgb/{}.png".format(10,
+                #         step_counter), rgb_image)
+                # cv2.imwrite("collected_data/traj{}/depth/{}.png".format(10,
+                #         step_counter), current_data["depth"])
+
                 current_ee_pose = robot.fkine(robot.q)
                 next_action = action[step_counter]
                 target_pose = output_processing(current_ee_pose, next_action)
-                initial_controller.move(target_pose)
+                target_ee_pose[step_counter] = target_pose
+                lite_controller.wTeegoal_2_qd(target_pose)
                 if next_action[0,-1] < 0:
                     robot_interface.close_gripper()
                 else:
                     robot_interface.open_gripper()
-                
+                actual_ee_pose[step_counter] = robot.fkine(robot.q)
                 step_counter += 1
                 print(step_counter)
                 # pick_and_place_flag = True
 
+        end_time = time.time()
+        # Calculate actual FPS
+        fps = 1 / (end_time - start_time)
+        print("actual fps: ", fps)
+    np.save("/home/mokhtars/Documents/bc_network/target_ee_pose.npy", target_ee_pose)
+    np.save("/home/mokhtars/Documents/bc_network/actual_ee_pose.npy", actual_ee_pose)
     simulation_app.close()
     return
 
@@ -146,12 +169,10 @@ if __name__ == "__main__":
     simulation_config = {
         "model_path": HOME + "/Documents/isaac-fmm/models/fmm_full.usd",
         "object_path": HOME
-        + "/Documents/isaac-codes/Grasping_task/imitation_learning/bowl/simple_bowl.usd",
-        "fps": 50,
+        + "/Documents/bc_network/bc_files/simple_bowl.usd",
+        "fps": 40,
         "mesh_dir": HOME
-        + "/Documents/isaac-codes/Grasping_task/imitation_learning/bowl/bowl.h5",
-        "cube_dir": HOME
-        + "/Documents/isaac-codes/Grasping_task/imitation_learning/cracker.usd",
+        + "/Documents/bc_network/bc_files/bowl.h5"
     }
 
     traj_dir = "/home/mokhtars/Documents/bc_network/collected_data/traj0"

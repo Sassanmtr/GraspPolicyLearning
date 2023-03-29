@@ -228,3 +228,149 @@ class PickAndPlace:
         self.done = False
         self.save_mode = True
         return
+
+
+class FakePickAndPlace:
+    def __init__(self, robot_interface):
+        self.pregrasp_pose_reached = False
+        self.grasp_pose_reached = False
+        self.obj_grasped = False
+        self.postgrasp_pose_reached = False
+        self.preplace_pose_reached = False
+        self.place_pose_reached = False
+        self.obj_placed = False
+        self.grasp_counter = 0
+        self.place_counter = 0
+        self.robot_interface = robot_interface
+        self.last_pregrasp_pose = None
+        self.last_preplace_pose = None
+        self.save_mode = True
+        self.done = False
+        self.close_gripper = False
+        self.ee_vel = np.zeros([1, 6])
+        return
+
+    def move(self, grasp_pose, place_pose):
+        if not self.pregrasp_pose_reached:
+            self.pregrasp_pose_reached, ee_vel = self.move_to_pregrasp(grasp_pose)
+            self.ee_vel = ee_vel
+            print("A!")
+            
+        elif not self.grasp_pose_reached:
+            self.grasp_pose_reached, ee_vel = self.move_to_grasp(grasp_pose)
+            self.ee_vel = ee_vel
+            print("B!")
+
+        elif not self.obj_grasped:
+            _, ee_vel = self.move_to_grasp(grasp_pose)
+            self.ee_vel = ee_vel
+            self.close_gripper = True
+            # self.obj_grasped = self.grasp_obj()
+
+            print("C!")
+
+        elif not self.postgrasp_pose_reached:
+            self.postgrasp_pose_reached, ee_vel = self.move_to_postgrasp()
+            self.ee_vel = ee_vel
+            print("D!")
+
+        elif not self.preplace_pose_reached:
+            self.done = True
+            self.save_mode = False
+            self.preplace_pose_reached, ee_vel = self.move_to_preplace(place_pose)
+            self.ee_vel = ee_vel
+            print("E!")
+
+        elif not self.place_pose_reached:
+            self.place_pose_reached = self.move_to_place(place_pose)
+            print("F!")
+
+        elif not self.obj_placed:
+            _ = self.move_to_place(place_pose)
+            self.obj_placed = self.place_obj()
+            print("G!")
+            
+
+        else:
+            _ = self.move_to_postplace()
+            print("Cube Moved!")
+
+        return self.ee_vel.reshape(1,6), self.close_gripper
+
+
+    def move_to_pregrasp(self, grasp_pose):
+        grTpregr = sm.SE3.Trans(0.0, 0.0, -0.05)
+        wTgr = grasp_pose
+        wTpregr = sm.SE3(wTgr.A @ grTpregr.A)
+        self.last_pregrasp_pose = wTpregr
+        self.robot_interface.update_robot_model()
+        reached_flag, qd = ee_pose_control(self.robot_interface, wTpregr)
+        ee_vel = np.matmul(self.robot_interface.robot_model.jacobe(qd), qd.reshape(-1, 1))
+        return reached_flag, ee_vel.reshape(1, -1)
+
+    def move_to_grasp(self, grasp_pose):
+        self.robot_interface.update_robot_model()
+        reached_flag, qd = ee_pose_control(self.robot_interface, grasp_pose)
+        ee_vel = np.matmul(self.robot_interface.robot_model.jacobe(qd), qd.reshape(-1, 1))
+        return reached_flag, ee_vel.reshape(1, -1)
+
+    def grasp_obj(self):
+        self.robot_interface.close_gripper()
+        self.grasp_counter += 1
+        obj_grasped = True if self.grasp_counter > 20 else False
+        return obj_grasped
+
+    def move_to_postgrasp(self):
+        self.robot_interface.update_robot_model()
+        desired_pos = self.last_pregrasp_pose.t + [0, 0, 0.3]
+        vertical_grasp = sm.SO3(np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]]))
+        postgrasp_pose = sm.SE3.Rt(vertical_grasp, desired_pos)
+        reached_flag, qd = ee_pose_control(self.robot_interface, postgrasp_pose)
+        ee_vel = np.matmul(self.robot_interface.robot_model.jacobe(qd), qd.reshape(-1, 1))
+        return reached_flag, ee_vel.reshape(1, -1)
+
+    def move_to_preplace(self, place_pose):
+        grTprepl = sm.SE3.Trans(0.0, 0.0, -0.05)
+        wTgr = place_pose
+        wTprepl = sm.SE3(wTgr.A @ grTprepl.A)
+        self.last_preplace_pose = wTprepl
+        self.robot_interface.update_robot_model()
+        reached_flag, qd = ee_pose_control(self.robot_interface, wTprepl)
+        return reached_flag
+
+    def move_to_place(self, place_pose):
+        self.robot_interface.update_robot_model()
+        reached_flag, qd = ee_pose_control(self.robot_interface, place_pose)
+        ee_vel = self.robot_interface.robot_model.jacobe(qd)
+        return reached_flag, ee_vel
+
+    def place_obj(self):
+        self.robot_interface.open_gripper()
+        self.place_counter += 1
+        obj_placed = True if self.place_counter > 100 else False
+        return obj_placed
+
+    def move_to_postplace(self):
+        self.robot_interface.update_robot_model()
+        reached_flag, qd = ee_pose_control(
+            self.robot_interface, self.last_preplace_pose
+        )
+        return reached_flag
+
+    def reset(self):
+        self.pregrasp_pose_reached = False
+        self.grasp_pose_reached = False
+        self.obj_grasped = False
+        self.postgrasp_pose_reached = False
+        self.preplace_pose_reached = False
+        self.place_pose_reached = False
+        self.obj_placed = False
+        self.grasp_counter = 0
+        self.place_counter = 0
+        self.last_pregrasp_pose = None
+        self.last_preplace_pose = None
+        self.done = False
+        self.close_gripper = False
+        self.save_mode = True
+        self.ee_vel = []
+        return

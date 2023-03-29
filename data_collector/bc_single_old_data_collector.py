@@ -136,12 +136,10 @@ def main(config):
     # Initialize World
     world_settings = {
         "stage_units_in_meters": 1.0,
-        "physics_dt": 1.0 / config["fps"],
-        "rendering_dt": 1.0 / config["fps"],
     }
     my_world = World(**world_settings)
-    my_world._time_steps_per_second = config["fps"]
-    my_world._fsm_update_rate = config["fps"]
+    # my_world._time_steps_per_second = config["fps"]
+    # my_world._fsm_update_rate = config["fps"]
     my_world.scene.add_default_ground_plane()
 
     # Initialize Robot
