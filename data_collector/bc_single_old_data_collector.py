@@ -1,119 +1,19 @@
 import sys
-sys.path.append('/home/mokhtars/Documents/bc_network/fmm-old-control')
+sys.path.append('/home/mokhtars/Documents/bc_network')
 import os
 from pathlib import Path
 from omni.isaac.kit import SimulationApp
 import carb
 import numpy as np
-import random
-import h5py
-from scipy.spatial.transform import Rotation as R
-import spatialmath as sm
-from spatialmath.base import trnorm
 import cv2
 import shutil
 import time
+import yaml
+from yaml.loader import SafeLoader
+from utils.helpers import *
 
 HOME = str(Path.home())
 print("HOME: ", HOME)
-
-
-def mesh_data(mesh_dir):
-    mesh = h5py.File(mesh_dir, "r")
-    success_idcs = mesh["grasps"]["qualities"]["flex"]["object_in_gripper"][()]
-    success_idcs == 1
-    grasp_pts = mesh["grasps"]["transforms"][()]
-    success_grasps = grasp_pts[success_idcs.nonzero()]
-    obj_pos = mesh["object"]["com"][()]
-    obj_scale = mesh["object"]["scale"][()]
-    obj_mass = mesh["object"]["mass"][()]
-    return success_grasps, obj_pos, obj_scale, obj_mass
-
-
-def gripper_inital_point_selector(area):
-    area == 2  #comment this line for random initial pose of gripper
-    if area == 0:
-        lower = np.array([1.05, 0.21, 1.19])
-        upper = np.array([0.95, 0.18, 1.17])
-        theta = -50
-        r = R.from_euler("xyz", [180, theta, 0], degrees=True)
-    elif area == 1:
-        lower = np.array([0.2, 0.7, 0.9])
-        upper = np.array([0.2, 0.7, 0.9])
-        theta = 40
-        r = R.from_euler("xyz", [180, theta, 90], degrees=True)
-    elif area == 2:
-        lower = np.array([1.0, 0.20, 1.18])
-        upper = np.array([1.0, 0.20, 1.18])
-        theta = -50
-        r = R.from_euler("xyz", [180, theta, 0], degrees=True)
-    else:
-        lower = np.array([-0.5, 0.2, 0.9])
-        upper = np.array([-0.5, 0.2, 0.9])
-        theta = -40
-        r = R.from_euler("xyz", [180, theta, 180], degrees=True)
-    x = np.random.uniform(low=lower[0], high=upper[0], size=1)
-    y = np.random.uniform(low=lower[1], high=upper[1], size=1)
-    z = np.random.uniform(low=lower[2], high=upper[2], size=1)
-    target_ori = sm.SO3(np.array(r.as_matrix()))
-    target_pos = [x[0], y[0], z[0]]
-    target_pose = sm.SE3.Rt(target_ori, target_pos)
-    return target_pose
-
-
-def get_observations(robot, obj):
-    obj_position, obj_orientation = obj.get_world_pose()
-    end_effector_pose = robot.fkine(robot.q)
-    vertical_grasp = sm.SO3(np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]]))
-    observations = {
-        robot.name: {
-            "end_effector_position": end_effector_pose,
-        },
-        obj.name: {
-            "position": obj_position,
-            "orientation": obj_orientation,
-            "target_position": sm.SE3.Rt(vertical_grasp, [0.6, -1.5, 0.7]),
-        },
-    }
-    return observations
-
-
-def closest_grasp(grasps, ee_pos):
-    ee_pos = ee_pos.A
-    matrices = grasps - ee_pos
-    dists = np.linalg.norm(matrices, axis=(1, 2))
-    min_index = np.argmin(dists)
-    return grasps[min_index]
-
-
-def initial_object_pos_selector():
-    # if area == 0 then the initial pose of object is random, 
-    # if area ==2 then the initial pose of object is fixed
-    area = random.randint(2, 2)    
-
-    if area == 0:
-        x = np.random.uniform(low=1.5, high=1.9, size=1)
-        y = np.random.uniform(low=0.0, high=0.5, size=1)
-        z = np.random.uniform(low=0.6, high=0.6, size=1)
-        object_pose = [x[0], y[0], z[0]]
-    elif area == 1:
-        x = np.random.uniform(low=0, high=0.4, size=1)
-        y = np.random.uniform(low=1.25, high=1.55, size=1)
-        z = np.random.uniform(low=0, high=0, size=1)
-        object_pose = [x[0], y[0], z[0]]
-    elif area == 2:
-        x = np.random.uniform(low=1.7, high=1.7, size=1)
-        y = np.random.uniform(low=0.2, high=0.2, size=1)
-        z = np.random.uniform(low=0.6, high=0.6, size=1)
-        object_pose = [x[0], y[0], z[0]]
-    else:
-        x = np.random.uniform(low=-1.4, high=-1.05, size=1)
-        y = np.random.uniform(low=-0.05, high=0.45, size=1)
-        z = np.random.uniform(low=0, high=0, size=1)
-        object_pose = [x[0], y[0], z[0]]
-
-    return area, object_pose
-
 
 def main(config):
     simulation_app = SimulationApp({"headless": False})
@@ -124,8 +24,8 @@ def main(config):
     from omni.isaac.core.utils.nucleus import get_assets_root_path
     from omni.physx.scripts import utils
     import omni.usd
-    from fmm_old_isaac import FmmIsaacInterface
-    from robot_control import PickAndPlace, ReachLocation
+    from fmm_old_control.fmm_old_isaac import FmmIsaacInterface
+    from fmm_old_control.robot_control import PickAndPlace, ReachLocation
 
     assets_root_path = get_assets_root_path()
     if assets_root_path is None:
@@ -216,18 +116,18 @@ def main(config):
             if failure_counter >= nr_traj * 3:
                 print("FAILURE, not enough successful grasps")
                 break
+            
             if (
                 success_counter == nr_traj
             ):  # Enough successful trajectories have been recorded
-
                 break
-
+            
             if (
                 pick_and_place_flag
             ):  # One trajectory has been finished (successful or failrue) and a new one should be started
                 my_world.reset()
-                area, new_object_pos = initial_object_pos_selector()
-                gripper_target_pose = gripper_inital_point_selector(area)
+                new_object_pos = initial_object_pos_selector()
+                gripper_target_pose = gripper_inital_point_selector()
                 my_object.set_world_pose(np.array(new_object_pos), [1, 0, 0, 0])
                 final_controller.reset()
                 navigation_flag = True
@@ -261,45 +161,11 @@ def main(config):
                     dist <= 0.012
                 ):  # If end effectors are close enough to the target initial pose
                     print("Gripper is in the initial grasping pose!")
-                    selected_grasp = closest_grasp(
-                        grasps=suc_grasps,
-                        ee_pos=observations[robot.name]["end_effector_position"],
-                    )
-                    print("Selected grasp: ", selected_grasp)
-                    wTobj = sm.SE3.Rt(
-                        sm.SO3(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])),
-                        new_object_pos,
-                    )
-
-                    objTgrasp = sm.SE3(trnorm(selected_grasp))
-                    graspTgoal = np.eye(4)
-                    fT = np.array(
-                        [[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
-                    )
-                    fT = sm.SE3(fT)
-                    graspTgoal[2, 3] = 0.1434
-
-                    graspTgoal = sm.SE3(graspTgoal)
-                    wTgrasp = wTobj * objTgrasp * graspTgoal * fT
-                    print("Final grasp: ", wTgrasp)
+                    wTgrasp = wTgrasp_finder(suc_grasps, robot, new_object_pos)
                     navigation_flag = False
             else:  # Pick and Place is performed
                 if final_controller.save_mode:
                     current_data = robot_interface.get_camera_data()
-                    # rgb_im = Image.fromarray(current_data["rgb"][:, :, 0:3])
-                    # rgb_im.save(
-                    #     "collected_data/traj{}/rgb/{}.jpeg".format(
-                    #         success_counter, step_counter
-                    #     )
-                    # )
-
-                    # depth_im = Image.fromarray(current_data["depth"])
-                    # cv2.imwrite(
-                    #     "collected_data/traj{}/depth/{}.jpeg".format(
-                    #         success_counter, step_counter
-                    #     ),
-                    #     depth_im,
-                    # )
                     rgb_image = cv2.cvtColor(current_data["rgb"][:, :, 0:3], cv2.COLOR_BGR2RGB)
                     cv2.imwrite("collected_data/traj{}/rgb/{}.png".format(success_counter,
                          step_counter), rgb_image)
@@ -350,12 +216,8 @@ def main(config):
 
 
 if __name__ == "__main__":
-    config = {
-        "model_path": HOME + "/Documents/isaac-fmm/models/fmm_full.usd",
-        "object_path": HOME
-        + "/Documents/bc_network/bc_files/simple_bowl.usd",
-        "fps": 40,
-        "mesh_dir": HOME
-        + "/Documents/bc_network/bc_files/bowl.h5"
-    } 
+
+    with open('simulation_config.yaml') as f:
+        config = yaml.load(f, Loader=SafeLoader)
+        print("config: ", config)
     main(config)
