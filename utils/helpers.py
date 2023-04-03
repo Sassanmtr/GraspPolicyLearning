@@ -95,6 +95,20 @@ def q_output_processing(current_ee_pose, next_action):
     target_pose = sm.SE3.Rt(target_ori, target_pos)
     return target_pose
 
+def output_processing_ex_rot(next_action):
+    mat = np.array(next_action[3:-1]).reshape(3, 3)
+    r = R.from_matrix(mat)
+    # print("Det", np.linalg.det(mat))
+    # print("IDentity", np.dot(mat.T, mat))
+    # target_ori = sm.SO3(trnorm(mat))
+    target_ori = sm.SO3(trnorm(np.array(r.as_matrix())))
+    # target_ori =  sm.SO3(np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]]))
+    target_pos = [next_action[0], next_action[1], next_action[2]]
+    print("target_pos", target_pos)
+    target_pose = sm.SE3.Rt(target_ori, target_pos)
+    return target_pose
+
+
 def predict_input_processing(robot_interface, robot_sim, device):
     current_data = robot_interface.get_camera_data()
     rgb_ar = current_data["rgb"][:, :, 0:3]
@@ -127,8 +141,7 @@ def get_observations(robot, obj):
     }
     return observations
 
-def save_image_update_pose(robot, robot_interface, robot_sim, pose_dict_name, step_counter, traj_counter): 
-    #change this function such that save the rgb_im using the imwrite   
+def save_image_update_pose(robot, robot_interface, robot_sim, pose_dict_name, step_counter, traj_counter):    
     current_data = robot_interface.get_camera_data()
     rgb_im = Image.fromarray(current_data["rgb"][:, :, 0:3])
     rgb_im = (rgb_im * 256.0).astype(np.uint16)
@@ -198,10 +211,6 @@ def initial_object_pos_selector():
     return object_pose
 
 
-
-
-
-
 def dir_name_creator(traj_counter):
     traj_path = os.path.join(
         os.getcwd() + "/collected_data",
@@ -242,12 +251,13 @@ def wTgrasp_finder(suc_grasps, robot, new_object_pos):
         [[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
     )
     fT = sm.SE3(fT)
-    graspTgoal[2, 3] = 0.1634
+    graspTgoal[2, 3] = 0.1434
 
     graspTgoal = sm.SE3(graspTgoal)
     wTgrasp = wTobj * objTgrasp * graspTgoal * fT
     
     return wTgrasp
+
 
 
 def save_pose_feedback(pose_dict_name, feedback_dict_name, traj_counter):

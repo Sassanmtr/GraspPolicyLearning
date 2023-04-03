@@ -1,5 +1,5 @@
 import numpy as np
-from fmm import FmmModel
+from fmm_old_control.fmm import FmmModel
 import omni
 from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.core.utils import prims

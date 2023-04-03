@@ -1,5 +1,6 @@
 import sys
 sys.path.append('/home/mokhtars/Documents/bc_network/bc_network')
+sys.path.append('/home/mokhtars/Documents/bc_network/utils')
 sys.path.append('/home/mokhtars/Documents/bc_network/fmm-old-control')
 import os
 from pathlib import Path

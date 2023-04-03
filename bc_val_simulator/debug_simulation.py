@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/home/mokhtars/Documents/bc_network/fmm-old-control')
+sys.path.append('/home/mokhtars/Documents/bc_network')
 import os
 from pathlib import Path
 from omni.isaac.kit import SimulationApp
@@ -7,11 +7,14 @@ import carb
 import numpy as np
 import spatialmath as sm
 from spatialmath.base import trnorm
-from debug_helpers import *
+from utils.helpers import *
+from bc_network.bcdataset import ReplayBuffer_abs_rot as buffer
 import time
-HOME = str(Path.home())
 import cv2
+import yaml
+from yaml.loader import SafeLoader
 
+HOME = str(Path.home())
 print("HOME: ", HOME)
 
 
@@ -24,8 +27,8 @@ def simulation_main(config, action, ee_info):
     from omni.isaac.core.utils.nucleus import get_assets_root_path
     from omni.physx.scripts import utils
     import omni.usd
-    from fmm_old_isaac import FmmIsaacInterface
-    from robot_control import ReachLocation
+    from fmm_old_control.fmm_old_isaac import FmmIsaacInterface
+    from fmm_old_control.robot_control import ReachLocation
 
     assets_root_path = get_assets_root_path()
     if assets_root_path is None:
@@ -90,7 +93,7 @@ def simulation_main(config, action, ee_info):
     robot = robot_interface.robot_model
     target_ee_pose = {}
     actual_ee_pose = {}
-
+    get_current_ee = {}
     # Start simulation
     my_world.reset()
     my_world.initialize_physics()
@@ -105,7 +108,7 @@ def simulation_main(config, action, ee_info):
         if my_world.is_playing():
             if my_world.current_time_step_index == 0:
                 my_world.reset()
-            if step_counter == 200:
+            if step_counter == 205:
                 break
             if (
                 pick_and_place_flag
@@ -129,7 +132,7 @@ def simulation_main(config, action, ee_info):
                     print("Final grasp: ", wTgrasp)
                     navigation_flag = False
             else:  # Pick and Place is performed
-                # current_ee_pose = ee_info[step_counter]
+                current_ee_pose = ee_info[step_counter]
 
                 # current_data = robot_interface.get_camera_data()
                 # rgb_image = cv2.cvtColor(current_data["rgb"][:, :, 0:3], cv2.COLOR_BGR2RGB)
@@ -138,17 +141,18 @@ def simulation_main(config, action, ee_info):
                 # cv2.imwrite("collected_data/traj{}/depth/{}.png".format(10,
                 #         step_counter), current_data["depth"])
 
-                current_ee_pose = robot.fkine(robot.q)
+                # current_ee_pose = robot.fkine(robot.q)
                 next_action = action[step_counter]
+                # next_action[0][0:3] = torch.tensor(ee_info[step_counter+1].t - ee_info[step_counter].t)
                 target_pose = output_processing(current_ee_pose, next_action)
-                target_ee_pose[step_counter] = target_pose
-                initial_controller.move(target_pose)
-
+                # target_ee_pose[step_counter] = target_pose
+                initial_controller.move(current_ee_pose)
+                get_current_ee[step_counter] = robot.fkine(robot.q)
                 if next_action[0,-1] < 0:
                     robot_interface.close_gripper()
                 else:
                     robot_interface.open_gripper()
-                actual_ee_pose[step_counter] = robot.fkine(robot.q)
+                # actual_ee_pose[step_counter] = robot.fkine(robot.q)
                 step_counter += 1
                 print(step_counter)
                 # pick_and_place_flag = True
@@ -157,29 +161,31 @@ def simulation_main(config, action, ee_info):
         # Calculate actual FPS
         fps = 1 / (end_time - start_time)
         print("actual fps: ", fps)
-    np.save("/home/mokhtars/Documents/bc_network/target_ee_pose.npy", target_ee_pose)
-    np.save("/home/mokhtars/Documents/bc_network/actual_ee_pose.npy", actual_ee_pose)
+    # np.save("/home/mokhtars/Documents/bc_network/target_ee_pose.npy", target_ee_pose)
+    # np.save("/home/mokhtars/Documents/bc_network/actual_ee_pose.npy", actual_ee_pose)
+    np.save("/home/mokhtars/Documents/bc_network/corresponding_ee_pose.npy", get_current_ee)
     simulation_app.close()
     return
 
 
 if __name__ == "__main__":
 
-    simulation_config = {
-        "model_path": HOME + "/Documents/isaac-fmm/models/fmm_full.usd",
-        "object_path": HOME
-        + "/Documents/bc_network/bc_files/simple_bowl.usd",
-        "fps": 40,
-        "mesh_dir": HOME
-        + "/Documents/bc_network/bc_files/bowl.h5"
-    }
+    with open('simulation_config.yaml') as f:
+        simulation_config = yaml.load(f, Loader=SafeLoader)
+        print("simulation config: ", simulation_config)
 
-    traj_dir = "/home/mokhtars/Documents/bc_network/collected_data/traj0"
+    with open('config.yaml') as f:
+        network_config = yaml.load(f, Loader=SafeLoader)
+        print("network config: ", network_config)
+        
+    data_dir = "/home/mokhtars/Documents/bc_network/collected_data"
+    traj_dir = "/home/mokhtars/Documents/bc_network/collected_data/traj0_old"
     ee_info = []
     pose_file = np.load(traj_dir + "/pose.npy", allow_pickle=True)
 
     for i in range(len(pose_file.item().keys())):
         ee_info.append(pose_file.item()[i]["ee_pose"])
-    image_data, joint_data, action = experience_collector(traj_dir)
+    replay_memory = buffer(network_config["buffer_capacity"], data_dir, network_config["sequence_len"])
+    image_data, joint_data, action = replay_memory.experience_collector(traj_dir)
     simulation_main(simulation_config, action, ee_info)
     

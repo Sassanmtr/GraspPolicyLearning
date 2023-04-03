@@ -8,3 +8,6 @@ opencv-python
 roboticstoolbox-python
 qpsolvers
 osqp
+roma
+scipy
+

@@ -1,4 +1,5 @@
 import sys
+sys.path.append('/home/mokhtars/Documents/bc_network/utils')
 sys.path.append('/home/mokhtars/Documents/bc_network/fmm-control-lite/fmm_control_lite')
 import os
 from pathlib import Path
@@ -7,7 +8,7 @@ import carb
 import numpy as np
 import spatialmath as sm
 from spatialmath.base import trnorm
-from debug_helpers import *
+from helpers import *
 import time
 HOME = str(Path.home())
 import cv2

@@ -1,18 +1,16 @@
 import sys
-sys.path.append('/home/mokhtars/Documents/bc_network/bc_network')
-sys.path.append('/home/mokhtars/Documents/bc_network/fmm-old-control')
+sys.path.append('/home/mokhtars/Documents/bc_network')
 import os
 from pathlib import Path
 from omni.isaac.kit import SimulationApp
 import carb
 import numpy as np
-import spatialmath as sm
-from spatialmath.base import trnorm
-from helpers import *
+import cv2
+from utils.helpers import *
 import torch
-import wandb
-from bcnet import Policy
-
+import yaml
+from yaml.loader import SafeLoader
+from bc_network.bcnet import Policy, Policy_abs_rot
 
 HOME = str(Path.home())
 print("HOME: ", HOME)
@@ -27,8 +25,8 @@ def simulation_main(config, policy, lstm_state=None):
     from omni.isaac.core.utils.nucleus import get_assets_root_path
     from omni.physx.scripts import utils
     import omni.usd
-    from fmm_old_isaac import FmmIsaacInterface
-    from robot_control import FakePickAndPlace, ReachLocation
+    from fmm_old_control.fmm_old_isaac import FmmIsaacInterface
+    from fmm_old_control.robot_control import FakePickAndPlace, ReachLocation
 
     assets_root_path = get_assets_root_path()
     if assets_root_path is None:
@@ -105,7 +103,8 @@ def simulation_main(config, policy, lstm_state=None):
     step_counter = 0
     my_world.set_simulation_dt(physics_dt=1.0 / 40.0, rendering_dt=1.0 / 10000.0)
     while simulation_app.is_running():
-        my_world.step(render=True)
+        my_world.step(render=False)
+        print("Time step index", my_world.current_time_step_index)
         if my_world.is_playing():
             if my_world.current_time_step_index == 0:
                 my_world.reset()
@@ -140,13 +139,22 @@ def simulation_main(config, policy, lstm_state=None):
                     print("Final grasp: ", wTgrasp)
                     navigation_flag = False
             else:  # Pick and Place is performed
+                if step_counter == 0:
+                    current_data = robot_interface.get_camera_data()
+                    rgb_image = cv2.cvtColor(current_data["rgb"][:, :, 0:3], cv2.COLOR_BGR2RGB)
+                    cv2.imwrite("collected_data/traj{}/rgb/{}.png".format(10,
+                            step_counter), rgb_image)
+                    cv2.imwrite("collected_data/traj{}/depth/{}.png".format(10,
+                            step_counter), current_data["depth"])
+
                 current_ee_pose = observations[robot.name]["end_effector_position"]
                 image_array, joint_array = predict_input_processing(robot_interface, robot_sim, device)
                 next_action, lstm_state = policy.predict(image_array, joint_array, lstm_state)
                 # if working with Euler use output_processing, if working with quat use q_output_processing
-                print()
-                print("Predicted quaternion norm: ", np.linalg.norm(next_action[3:-1]))
-                target_pose = q_output_processing(current_ee_pose, next_action)
+                # print()
+                # print("Predicted quaternion norm: ", np.linalg.norm(next_action[3:-1]))
+                # target_pose = q_output_processing(current_ee_pose, next_action)
+                target_pose = output_processing_ex_rot(next_action)
                 initial_controller.move(target_pose)
                 if next_action[-1] < 0:
                     robot_interface.close_gripper()
@@ -182,28 +190,17 @@ def simulation_main(config, policy, lstm_state=None):
 
 if __name__ == "__main__":
 
-    simulation_config = {
-        "model_path": HOME + "/Documents/isaac-fmm/models/fmm_full.usd",
-        "object_path": HOME
-        + "/Documents/bc_network/bc_files/simple_bowl.usd",
-        "fps": 40,
-        "mesh_dir": HOME
-        + "/Documents/bc_network/bc_files/bowl.h5"
-    }
-    network_config = {
-        "visual_embedding_dim": 2394,
-        "proprio_dim": 13,
-        "action_dim": 8,
-        "learning_rate": 1e-5,
-        "weight_decay": 3e-4,
-        "batch_size": 4,
-        "sequence_len": 5,
-        "num_epochs": 100,
-        "buffer_capacity": 100,
-    }
+    with open('simulation_config.yaml') as f:
+        simulation_config = yaml.load(f, Loader=SafeLoader)
+        print("simulation config: ", simulation_config)
+
+    with open('config.yaml') as f:
+        network_config = yaml.load(f, Loader=SafeLoader)
+        print("network config: ", network_config)
+
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    policy = Policy(network_config, device)
+    policy = Policy_abs_rot(network_config, device)
     model_path = "saved_models/policy.pt"
     policy.load_state_dict(torch.load(model_path))
 

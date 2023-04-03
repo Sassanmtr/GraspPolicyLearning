@@ -4,7 +4,6 @@ import random
 import numpy as np
 from PIL import Image
 from collections import deque
-from scipy.spatial.transform import Rotation
 import torch
 from torchvision import transforms
 from torch.utils.data import Dataset
@@ -78,13 +77,12 @@ class ReplayBuffer(Dataset):
     def data_collector(self, rgb_dir, step_index):
         # image (rgb and depth)
         convert_tensor = transforms.ToTensor()
-        rgb_img = Image.open(rgb_dir + "/{}.jpeg".format(step_index))
+        rgb_img = Image.open(rgb_dir + "/{}.png".format(step_index))
         rgb_img = convert_tensor(rgb_img)
         traj_dir = rgb_dir[:-4]
         depth_dir = os.path.join(traj_dir, "depth")
-        depth_img = Image.open(depth_dir + "/{}.jpeg".format(step_index))
-        depth_img = convert_tensor(depth_img)
-        depth_img /= 100.0              #scale back                 
+        depth_img = Image.open(depth_dir + "/{}.png".format(step_index))
+        depth_img = convert_tensor(depth_img)              
         im_info = torch.cat((rgb_img, depth_img), dim=0)
         #joint
         pose_file = np.load(traj_dir + "/pose.npy", allow_pickle=True)
@@ -173,3 +171,90 @@ def quaternion_difference(q1, q2):
     diff_quat = np.array([np.cos(angle/2), axis[0]*np.sin(angle/2), axis[1]*np.sin(angle/2), axis[2]*np.sin(angle/2)])
     
     return diff_quat
+
+
+class ReplayBuffer_abs_rot(Dataset):
+    """Replay Buffer for storing past experiences allowing the agent to learn from them. 
+    The output is exact not difference and angles are presented as rotation matrix not Euler. 
+
+    Args:
+        capacity: size of the buffer
+    """
+
+    def __init__(self, capacity, data_dir, sequence_len):
+        self.data_dir = data_dir
+        self.sequence_len = sequence_len
+        self.rgb_path = os.path.join(self.data_dir, "/rgb")
+        self.buffer = deque(maxlen=capacity)
+
+    def __len__(self):
+        return len(self.buffer)
+
+    def __getitem__(self, idx):
+        return os.path.join(self.data_dir, "traj{}".format(idx))
+
+
+    def append(self, experience) -> None:
+        """Add experience to the buffer.
+
+        Args:
+            experience: trajectory path
+        """
+        self.buffer.append(experience)
+
+    def experience_collector(self, traj_dir):
+        rgb_dir = os.path.join(traj_dir, "rgb")
+        step_index = index_sampler(rgb_dir, self.sequence_len + 1)
+        image_data = []
+        joint_data = []
+        action_data = []
+        ext_action_data = []
+        gripper_pos = []
+        for i in range(self.sequence_len + 1):
+            image_step, joint_step, ee_pose_step = self.data_collector(rgb_dir, step_index + i)
+            image_data.append(image_step)
+            joint_data.append(torch.tensor(joint_step))
+            action_data.append(np.concatenate((ee_pose_step.t.reshape(1,3), ee_pose_step.R.reshape(1,9)), axis=-1))
+            gripper_pos.append(joint_step[-2] + joint_step[-1])
+        image_data.pop()
+        joint_data.pop()
+        gripper_pos = gripper_pos[1:]
+        action_data = np.array(action_data)[1:]
+
+        for j, action in enumerate(action_data):
+            if gripper_pos[j] > 0.04:
+                ext_action_data.append(np.concatenate((action, np.array([0.8]).reshape(1,1)), axis=1))
+            else:
+                ext_action_data.append(np.concatenate((action, np.array([-0.8]).reshape(1,1)), axis=1))
+        ext_action_data = np.array(ext_action_data)
+        return torch.stack(image_data), torch.stack(joint_data), torch.tensor(ext_action_data)
+
+    def data_collector(self, rgb_dir, step_index):
+        # image (rgb and depth)
+        convert_tensor = transforms.ToTensor()
+        rgb_img = Image.open(rgb_dir + "/{}.png".format(step_index))
+        rgb_img = convert_tensor(rgb_img)
+        traj_dir = rgb_dir[:-4]
+        depth_dir = os.path.join(traj_dir, "depth")
+        depth_img = Image.open(depth_dir + "/{}.png".format(step_index))
+        depth_img = convert_tensor(depth_img)              
+        im_info = torch.cat((rgb_img, depth_img), dim=0)
+        #joint
+        pose_file = np.load(traj_dir + "/pose.npy", allow_pickle=True)
+        joint_info = pose_file.item()[step_index]["joint_pos"]
+        #action
+        current_ee_pose = pose_file.item()[step_index]["ee_pose"]
+
+        return im_info, joint_info, current_ee_pose
+
+    def sample(self, batch_size: int):
+        indices = np.random.choice(len(self.buffer), batch_size, replace=False)
+        image_batch = []
+        joint_batch = []
+        action_batch = []
+        for idx in indices:
+            img_in, joint_in, pose_in = self.experience_collector(self.buffer[idx])
+            image_batch.append(img_in)
+            joint_batch.append(joint_in)
+            action_batch.append(pose_in)
+        return torch.stack(image_batch), torch.stack(joint_batch), torch.stack(action_batch)

@@ -2,7 +2,7 @@ import numpy as np
 import qpsolvers as qp
 import spatialmath as sm
 import roboticstoolbox as rtb
-from pointcloud_processing import get_obstacle_map
+from fmm_old_control.pointcloud_processing import get_obstacle_map
 
 
 def ee_pose_control(robot_interface, wTeg):
@@ -97,7 +97,6 @@ class ReachLocation:
     def move(self, goal_pose):
         self.robot_interface.update_robot_model()
         self.grasp_pose_reached, qd = ee_pose_control(self.robot_interface, goal_pose)
-        # qd = qd / 10
         self.robot_interface.move_joints(qd)
         return
 

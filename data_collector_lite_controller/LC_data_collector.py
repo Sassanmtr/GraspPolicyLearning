@@ -354,7 +354,7 @@ def main(config):
                     qd, distance = lite_controller.wTeegoal_2_qd(wTgrasp)
                     # print("gripper_position: ", robot_sim.get_joint_positions()[-2:])
                     print("Grasp distance: ", distance)
-                    if distance <= 0.015:
+                    if distance <= 0.06:
                         obj_grasped = grasp_obj(robot_interface, grasp_counter)
                         if obj_grasped:
                             grasp_flag = False
@@ -400,11 +400,9 @@ if __name__ == "__main__":
     config = {
         "model_path": HOME + "/Documents/isaac-fmm/models/fmm_full.usd",
         "object_path": HOME
-        + "/Documents/bc_network/data_collector/imitation_learning/bowl/simple_bowl.usd",
-        "fps": 15,
+        + "/Documents/bc_network/bc_files/simple_bowl.usd",
+        "fps": 40,
         "mesh_dir": HOME
-        + "/Documents/bc_network/data_collector/imitation_learning/bowl/bowl.h5",
-        "cube_dir": HOME
-        + "/Documents/bc_network/data_collector/imitation_learning/cracker.usd",
+        + "/Documents/bc_network/bc_files/bowl.h5"
     }
     main(config)
