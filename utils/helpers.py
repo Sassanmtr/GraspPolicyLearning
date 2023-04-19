@@ -97,15 +97,15 @@ def q_output_processing(current_ee_pose, next_action):
 
 def output_processing_ex_rot(next_action):
     mat = np.array(next_action[3:-1]).reshape(3, 3)
-    r = R.from_matrix(mat)
+    # r = R.from_matrix(mat)
     # print("Det", np.linalg.det(mat))
     # print("IDentity", np.dot(mat.T, mat))
-    # target_ori = sm.SO3(trnorm(mat))
-    target_ori = sm.SO3(trnorm(np.array(r.as_matrix())))
+    target_ori = sm.SO3(trnorm(mat), check=False)
+    # target_ori = sm.SO3(trnorm(np.array(r.as_matrix())))
     # target_ori =  sm.SO3(np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]]))
     target_pos = [next_action[0], next_action[1], next_action[2]]
     print("target_pos", target_pos)
-    target_pose = sm.SE3.Rt(target_ori, target_pos)
+    target_pose = sm.SE3.Rt(target_ori, target_pos, check=False)
     return target_pose
 
 
@@ -198,9 +198,14 @@ def initial_object_pos_selector():
         z = np.random.uniform(low=0, high=0, size=1)
         object_pose = [x[0], y[0], z[0]]
     elif area == 2:
-        x = np.random.uniform(low=1.7, high=1.7, size=1)
+        x = np.random.uniform(low=1.5, high=1.5, size=1)
         y = np.random.uniform(low=0.2, high=0.2, size=1)
         z = np.random.uniform(low=0.6, high=0.6, size=1)
+        object_pose = [x[0], y[0], z[0]]
+    elif area == 3:
+        x = np.random.uniform(low=1.1, high=1.1, size=1)
+        y = np.random.uniform(low=0.2, high=0.2, size=1)
+        z = np.random.uniform(low=0.05, high=0.05, size=1)
         object_pose = [x[0], y[0], z[0]]
     else:
         x = np.random.uniform(low=-1.4, high=-1.05, size=1)
@@ -210,30 +215,6 @@ def initial_object_pos_selector():
 
     return object_pose
 
-
-def dir_name_creator(traj_counter):
-    traj_path = os.path.join(
-        os.getcwd() + "/collected_data",
-        "traj{}".format(traj_counter),
-    )
-    os.mkdir(traj_path)
-    rgb_path = os.path.join(
-        os.getcwd() + "/collected_data",
-        "traj{}/rgb".format(traj_counter),
-    )
-    os.mkdir(rgb_path)
-    depth_path = os.path.join(
-        os.getcwd() + "/collected_data",
-        "traj{}/depth".format(traj_counter),
-    )
-    os.mkdir(depth_path)
-
-    pose_dict_name = "pose{}".format(traj_counter)
-    pose_dict_name = {}
-
-    feedback_dict_name = "feedback{}".format(traj_counter)
-    feedback_dict_name = {}
-    return traj_path, pose_dict_name, feedback_dict_name
 
 def wTgrasp_finder(suc_grasps, robot, new_object_pos):
     selected_grasp = closest_grasp(
@@ -258,7 +239,39 @@ def wTgrasp_finder(suc_grasps, robot, new_object_pos):
     
     return wTgrasp
 
+def save_rgb_depth(current_data, step_counter, success_counter):
+    rgb_image = cv2.cvtColor(current_data["rgb"][:, :, 0:3], cv2.COLOR_BGR2RGB)
+    cv2.imwrite("collected_data/traj{}/rgb/{}.png".format(success_counter,
+            step_counter), rgb_image)
+    cv2.imwrite("collected_data/traj{}/depth/{}.png".format(success_counter,
+            step_counter), current_data["depth"])
 
+def update_pose_dict(pose_dict_name, step_counter, robot_sim, ee_twist):
+    pose_dict_name[step_counter] = {}
+    pose_dict_name[step_counter]["ee_twist"] = ee_twist
+    pose_dict_name[step_counter]["joint_pos"] = robot_sim.get_joint_positions()
+    return pose_dict_name
+
+def create_traj_folders_dict(success_counter):
+    traj_path = os.path.join(
+        os.getcwd() + "/collected_data",
+        "traj{}".format(success_counter),
+    )
+    os.makedirs(traj_path, exist_ok=True)
+    rgb_path = os.path.join(
+        os.getcwd() + "/collected_data",
+        "traj{}/rgb".format(success_counter),
+    )
+    os.makedirs(rgb_path, exist_ok=True)
+    depth_path = os.path.join(
+        os.getcwd() + "/collected_data",
+        "traj{}/depth".format(success_counter),
+    )
+    os.makedirs(depth_path, exist_ok=True)
+    pose_dict_name = "pose{}".format(success_counter)
+    pose_dict_name = {}
+    return traj_path, pose_dict_name
+#--------------Feedback-----------------
 
 def save_pose_feedback(pose_dict_name, feedback_dict_name, traj_counter):
 
@@ -275,3 +288,27 @@ def save_pose_feedback(pose_dict_name, feedback_dict_name, traj_counter):
     )
     np.save("collected_data/traj{}/feedback.npy".format(traj_counter), feedback_dict_name)
     print("traj_counter: ", traj_counter)
+
+def dir_name_creator_feedback(traj_counter):
+    traj_path = os.path.join(
+        os.getcwd() + "/collected_data",
+        "traj{}".format(traj_counter),
+    )
+    os.mkdir(traj_path)
+    rgb_path = os.path.join(
+        os.getcwd() + "/collected_data",
+        "traj{}/rgb".format(traj_counter),
+    )
+    os.mkdir(rgb_path)
+    depth_path = os.path.join(
+        os.getcwd() + "/collected_data",
+        "traj{}/depth".format(traj_counter),
+    )
+    os.mkdir(depth_path)
+
+    pose_dict_name = "pose{}".format(traj_counter)
+    pose_dict_name = {}
+
+    feedback_dict_name = "feedback{}".format(traj_counter)
+    feedback_dict_name = {}
+    return traj_path, pose_dict_name, feedback_dict_name

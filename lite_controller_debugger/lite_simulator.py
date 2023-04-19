@@ -1,12 +1,12 @@
 import sys
-sys.path.append('/home/mokhtars/Documents/bc_network/bc_network')
+sys.path.append('/home/mokhtars/Documents/bc_network')
 from pathlib import Path
 from omni.isaac.kit import SimulationApp
 import carb
 import numpy as np
-from helpers import *
+from utils.helpers import *
 import torch
-from bcnet import Policy
+from bc_network.bcnet import Policy
 
 HOME = str(Path.home())
 print("HOME: ", HOME)
@@ -45,7 +45,7 @@ def simulation_main(config, policy, lstm_state=None):
     robot_sim = my_world.scene.add(
         Robot(prim_path="/World/FMM", name="fmm", position=[0, 0, 0])
     )
-
+    
     # Initialize Env
     add_reference_to_stage(
         usd_path=HOME + "/Documents/isaac-fmm/models/hospital.usd",

@@ -8,4 +8,4 @@ batch_size: 1
 sequence_len: 10
 num_epochs: 500
 buffer_capacity: 200
-steps: 5000
+steps: 100000

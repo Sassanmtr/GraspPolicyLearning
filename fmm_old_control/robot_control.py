@@ -17,7 +17,7 @@ def ee_pose_control(robot_interface, wTeg):
 
     # Distance to goal
     wTe = robot.fkine(robot.q)
-    eTeg = sm.SE3(np.linalg.inv(wTe.A) @ wTeg.A)
+    eTeg = sm.SE3(np.linalg.inv(wTe.A) @ wTeg.A, check=False)
     distance = np.linalg.norm(eTeg.t)
 
     # Quadratic component of objective function
@@ -51,7 +51,7 @@ def ee_pose_control(robot_interface, wTeg):
     # Get base to face end-effector
     theta_w = 0.1
     wTb = robot.fkine(robot.q, end=robot.links[3])
-    bTe = sm.SE3(np.linalg.inv(wTb.A) @ wTe.A)
+    bTe = sm.SE3(np.linalg.inv(wTb.A) @ wTe.A, check=False)
     theta = np.arctan2(bTe.t[1], bTe.t[0])
     epsilon = theta_w * theta
     c[2] += -epsilon
@@ -154,7 +154,7 @@ class PickAndPlace:
     def move_to_pregrasp(self, grasp_pose):
         grTpregr = sm.SE3.Trans(0.0, 0.0, -0.05)
         wTgr = grasp_pose
-        wTpregr = sm.SE3(wTgr.A @ grTpregr.A)
+        wTpregr = sm.SE3(wTgr.A @ grTpregr.A, check=False)
         self.last_pregrasp_pose = wTpregr
         self.robot_interface.update_robot_model()
         reached_flag, qd = ee_pose_control(self.robot_interface, wTpregr)
@@ -177,7 +177,7 @@ class PickAndPlace:
         self.robot_interface.update_robot_model()
         desired_pos = self.last_pregrasp_pose.t + [0, 0, 0.2]
         vertical_grasp = sm.SO3(np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]]))
-        postgrasp_pose = sm.SE3.Rt(vertical_grasp, desired_pos)
+        postgrasp_pose = sm.SE3.Rt(vertical_grasp, desired_pos, check=False)
         reached_flag, qd = ee_pose_control(self.robot_interface, postgrasp_pose)
         self.robot_interface.move_joints(qd)
         return reached_flag
@@ -185,7 +185,7 @@ class PickAndPlace:
     def move_to_preplace(self, place_pose):
         grTprepl = sm.SE3.Trans(0.0, 0.0, -0.05)
         wTgr = place_pose
-        wTprepl = sm.SE3(wTgr.A @ grTprepl.A)
+        wTprepl = sm.SE3(wTgr.A @ grTprepl.A, check=False)
         self.last_preplace_pose = wTprepl
         self.robot_interface.update_robot_model()
         reached_flag, qd = ee_pose_control(self.robot_interface, wTprepl)
@@ -300,7 +300,7 @@ class FakePickAndPlace:
     def move_to_pregrasp(self, grasp_pose):
         grTpregr = sm.SE3.Trans(0.0, 0.0, -0.05)
         wTgr = grasp_pose
-        wTpregr = sm.SE3(wTgr.A @ grTpregr.A)
+        wTpregr = sm.SE3(wTgr.A @ grTpregr.A, check=False)
         self.last_pregrasp_pose = wTpregr
         self.robot_interface.update_robot_model()
         reached_flag, qd = ee_pose_control(self.robot_interface, wTpregr)
@@ -331,7 +331,7 @@ class FakePickAndPlace:
     def move_to_preplace(self, place_pose):
         grTprepl = sm.SE3.Trans(0.0, 0.0, -0.05)
         wTgr = place_pose
-        wTprepl = sm.SE3(wTgr.A @ grTprepl.A)
+        wTprepl = sm.SE3(wTgr.A @ grTprepl.A, check=False)
         self.last_preplace_pose = wTprepl
         self.robot_interface.update_robot_model()
         reached_flag, qd = ee_pose_control(self.robot_interface, wTprepl)

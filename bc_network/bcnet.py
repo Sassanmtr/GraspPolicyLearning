@@ -203,6 +203,97 @@ class Policy_abs_rot(nn.Module):
         return action, lstm_state
 
 
+class Policy_twist(nn.Module):
+    def __init__(self, config, device):
+        super(Policy_twist, self).__init__()
+        self._device = device
+        lstm_dim = config["visual_embedding_dim"] + config["proprio_dim"]
+        self.conv1 = nn.Conv2d(
+            in_channels=4, out_channels=2, kernel_size=3, padding=1, stride=2
+        ).to(device)
+        self.conv2 = nn.Conv2d(
+            in_channels=2, out_channels=1, kernel_size=3, padding=1, stride=2
+        ).to(device)
+        self.conv3 = nn.Conv2d(
+            in_channels=1, out_channels=1, kernel_size=3, padding=1, stride=2
+        ).to(device)
+        self.lstm = nn.LSTM(lstm_dim, lstm_dim).to(device)
+        self.linear_out = nn.Linear(lstm_dim, config["action_dim"]).to(device)
+        self.optimizer = torch.optim.Adam(
+            self.parameters(),
+            lr=float(config["learning_rate"]),
+            weight_decay=float(config["weight_decay"]),
+        )
+        self.loss = nn.MSELoss().to(device)
+        self.binary_loss = nn.BCEWithLogitsLoss().to(device)
+        return
+
+    @property
+    def device(self):
+        return self._device
+
+    def forward_step(self, camera_obs, proprio_obs, lstm_state):
+        vis_encoding = F.elu(self.conv1(camera_obs))
+        vis_encoding = F.elu(self.conv2(vis_encoding))
+        vis_encoding = F.elu(self.conv3(vis_encoding))
+        vis_encoding = torch.flatten(vis_encoding, start_dim=1)
+        low_dim_input = torch.cat((vis_encoding, proprio_obs), dim=-1).unsqueeze(0)
+        lstm_out, (h, c) = self.lstm(low_dim_input, lstm_state)
+        lstm_state = (h, c)
+        out = torch.tanh(self.linear_out(lstm_out))
+        return out, lstm_state
+
+    def forward(self, camera_obs_traj, proprio_obs_traj, action_traj):
+        losses_t = []
+        losses_r = []
+        losses_g = []
+        lstm_state = None
+        for idx in range(len(proprio_obs_traj)):
+            output, lstm_state = self.forward_step(
+                camera_obs_traj[idx], proprio_obs_traj[idx], lstm_state
+            )
+            losses_t.append(self.loss(output[:,:,:3], action_traj[idx][:,:,:3].permute(1, 0, 2)))
+            losses_r.append(self.loss(output[:,:,3:-1], action_traj[idx][:,:,3:-1].permute(1, 0, 2)))
+            losses_g.append(self.binary_loss(output[:,:,-1], action_traj[idx][:,:,-1].permute(1, 0)))
+
+        total_loss_t = sum(losses_t)
+        total_loss_r = sum(losses_r)
+        total_loss_g = sum(losses_g)
+
+        return total_loss_t.float(), total_loss_r.float(), total_loss_g.float()
+
+    def update_params(
+        self, camera_obs_traj, proprio_obs_traj, action_traj
+    ):
+        camera_obs = camera_obs_traj.to(self.device).float()
+        proprio_obs = proprio_obs_traj.to(self.device).float()
+        action = action_traj.to(self.device).float()
+        self.optimizer.zero_grad()
+        loss_t, loss_r , loss_g= self.forward(camera_obs, proprio_obs, action)
+        total_loss = loss_t + loss_r #+ (loss_g/1)
+        total_loss.backward()
+        self.optimizer.step()
+        training_metrics = {"total loss": total_loss, "translation loss": loss_t, "rotation loss": loss_r, "gripper loss": loss_g}
+        return training_metrics
+
+    def predict(self, camera_obs, proprio_obs, lstm_state):
+        camera_obs_th = torch.tensor(camera_obs, dtype=torch.float32).unsqueeze(0)
+        proprio_obs_th = torch.tensor(proprio_obs, dtype=torch.float32).unsqueeze(0)
+        camera_obs_th = camera_obs_th.to(self.device)
+        proprio_obs_th = proprio_obs_th.to(self.device)
+        with torch.no_grad():
+            action_th, lstm_state = self.forward_step(
+                camera_obs_th, proprio_obs_th, lstm_state
+            )
+            action = action_th.detach().cpu().squeeze(0).squeeze(0).numpy()
+            action[-1] = binary_gripper(action[-1])
+        return action, lstm_state
+
+
+
+
+
+
 
 def binary_gripper(gripper_action):
     if gripper_action >= 0.0:
