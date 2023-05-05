@@ -42,7 +42,7 @@ def main(config):
         Robot(prim_path="/World/FMM", name="fmm", position=[0, 0, 0])
     )
 
-    # Initialize Env
+    # Initialize Env and Object
     add_reference_to_stage(
         usd_path=HOME + "/Documents/isaac-fmm/models/hospital.usd",
         prim_path="/World/Hospital",
@@ -99,29 +99,21 @@ def main(config):
     my_world.initialize_physics()
     my_world.play()
 
-    nr_traj = 1
-    step_threshold = 600
+    nr_traj = 100
+    step_threshold = 500
     success_counter = 0
     failure_counter = 0
-
+    failure_flag = False
     obj_grasped = False
-    my_world.set_simulation_dt(physics_dt=1.0 / 40.0, rendering_dt=1.0 / 10000.0)
     while simulation_app.is_running():
         my_world.reset()
-        my_world.step(render=False)
+        my_world.step(render=True)
         new_object_pos = initial_object_pos_selector()
         ee_initial_target_pose = gripper_inital_point_selector()
         my_object.set_world_pose(np.array(new_object_pos), [1, 0, 0, 0])
         grasp_pose = wTgrasp_finder(suc_grasps, robot_interface.robot_model, new_object_pos)
         
         step_counter = 0
-        if step_counter >= step_threshold:
-                shutil.rmtree(traj_path)
-                failure_counter += 1
-
-        if failure_counter >= nr_traj * 3:
-            print("FAILURE, not enough successful grasps")
-            break
         
         if success_counter == nr_traj:
             print("SUCCESS, enough successful grasps")
@@ -135,84 +127,91 @@ def main(config):
         grasp_flag = False
         pick_flag = False
 
-        while step_counter < step_threshold:
-            print("step counter: ", step_counter)
+        while step_counter <= step_threshold:
+            # print("step counter: ", step_counter)
+            if failure_flag or step_counter == step_threshold:
+                shutil.rmtree(traj_path)
+                failure_counter += 1
+                print("Failure ", failure_counter)
+                failure_flag = False
+                break
             if nav_flag:
                 init_dist, goal_reached, ee_twist = move_to_goal(
                     robot_interface, lite_controller, ee_initial_target_pose
-                )
+                ) 
                 robot_interface.update_robot_model()
-                my_world.step(render=False)
-                if init_dist < 0.02:
+                robot_interface.get_camera_data()
+                my_world.step(render=True)
+                if init_dist < 0.027:
                     grasp_pose = wTgrasp_finder(suc_grasps, robot_interface.robot_model, new_object_pos)
-                    pick_position = [grasp_pose.t[0], grasp_pose.t[1], 0.9]
+                    pick_position = [grasp_pose.t[0], grasp_pose.t[1], 1.2]
                     current_ori = grasp_pose.R
                     pick_pose = sm.SE3.Rt(current_ori, pick_position, check=False)
                     nav_flag = False
                     pregrasp_flag = True
             if pregrasp_flag:
-                print("pregrasp...")
-                grTpregr = sm.SE3.Trans(0.0, 0.0, -0.05)
-                # wTpregr = sm.SE3(grasp_pose.A @ grTpregr.A, check=False)
+                # print("pregrasp...")
                 pregrasp_dist, goal_reached, ee_twist = move_to_goal(robot_interface, lite_controller, grasp_pose)
                 robot_interface.update_robot_model()
-                my_world.step(render=False)
+                my_world.step(render=True)
                 # Save RGB and Depth images
                 print("my_world.current_time_step_index", my_world.current_time_step_index)
-                print("pregrasp dist: ", pregrasp_dist)
+                # print("pregrasp dist: ", pregrasp_dist)
                 current_data = robot_interface.get_camera_data()
                 save_rgb_depth(current_data, step_counter, success_counter)
                 pose_dict_name = update_pose_dict(pose_dict_name, step_counter, robot_sim, ee_twist)
                 
                 step_counter += 1
                 
-                if pregrasp_dist < 0.05:
+                if pregrasp_dist < 0.027:
                     pregrasp_flag = False
                     grasp_flag = True
             if grasp_flag:
-                print("grasp...")
+                # print("grasp...")
                 distance_len, goal_reached, ee_twist = move_to_goal(
                     robot_interface, lite_controller, grasp_pose)
-                print("before grasp_obj")
                 obj_grasped = grasp_obj(robot_interface, lite_controller)
-                print("after grasp_obj")
                 robot_interface.update_robot_model()
-                my_world.step(render=False)
+                my_world.step(render=True)
                 # Save RGB and Depth images and update pose dictionary
                 current_data = robot_interface.get_camera_data()
                 save_rgb_depth(current_data, step_counter, success_counter)
                 pose_dict_name = update_pose_dict(pose_dict_name, step_counter, robot_sim, ee_twist)
-
                 step_counter += 1
-
+                print("step_counter: ", step_counter)
                 if obj_grasped:
                     grasp_flag = False
                     pick_flag = True
 
             if pick_flag:
-                print("pick...")
+                # print("pick...")
                 distance_len_f, goal_reached, ee_twist = move_to_goal(
                     robot_interface, lite_controller, pick_pose)
                 robot_interface.close_gripper()
                 robot_interface.update_robot_model()
-                my_world.step(render=False)
-                print("object distance: ", distance_len_f)
-                print("my_world.current_time_step_index", my_world.current_time_step_index)
+                my_world.step(render=True)
+                # print("object distance: ", distance_len_f)
+                # print("my_world.current_time_step_index", my_world.current_time_step_index)
                 # Save RGB and Depth images and update pose dictionary
                 current_data = robot_interface.get_camera_data()
                 save_rgb_depth(current_data, step_counter, success_counter)
                 pose_dict_name = update_pose_dict(pose_dict_name, step_counter, robot_sim, ee_twist)
         
-                if my_object.get_world_pose()[0][-1] > 0.8:
+                if my_object.get_world_pose()[0][-1] > 0.98:
                     np.save(
                         "collected_data/traj{}/pose.npy".format(success_counter),
                         pose_dict_name)
                     success_counter += 1
                     pick_flag = False
+                    print("successful grasp ", success_counter)
                     break
+                if distance_len_f < 0.03:
+                    pick_flag = False
+                    failure_flag = True
 
                 step_counter += 1
-
+                print("step_counter: ", step_counter)
+            
 
     simulation_app.close()
     return
@@ -231,9 +230,8 @@ def move_to_goal(interface, controller, goal_pose):
 
 def grasp_obj(robot_interface, controller):
     robot_interface.close_gripper()
-    # robot_interface.update_robot_model()
     controller.grasp_counter += 1
-    obj_grasped = True if controller.grasp_counter > 50 else False
+    obj_grasped = True if controller.grasp_counter > 40 else False
     return obj_grasped
 
 

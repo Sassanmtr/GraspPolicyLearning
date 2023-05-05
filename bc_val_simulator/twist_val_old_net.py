@@ -4,16 +4,18 @@ from pathlib import Path
 import pathlib
 import time
 import yaml
+import torch
 from yaml.loader import SafeLoader
 import numpy as np
 import spatialmath as sm
 from omni.isaac.kit import SimulationApp
 from utils.helpers import *
+from bc_network.bcnet import Policy_twist
 
 HOME = str(Path.home())
 print("HOME: ", HOME)
 
-def main(config):
+def main(config, policy, lstm_state=None):
     simulation_app = SimulationApp({"headless": False})
     from omni.isaac.core import World
     from omni.isaac.core.robots import Robot
@@ -86,79 +88,59 @@ def main(config):
     my_world.reset()
     my_world.initialize_physics()
     my_world.play()
-    init_dist = 1
-    final_dist = 1
+    
     step_counter = 0
-    success_counter = 0
-    # Create directory to save data
-    traj_path = os.path.join(
-        os.getcwd() + "/collected_data",
-        "traj{}".format(success_counter),
-    )
-    os.mkdir(traj_path)
-    rgb_path = os.path.join(
-        os.getcwd() + "/collected_data",
-        "traj{}/rgb".format(success_counter),
-    )
-    os.mkdir(rgb_path)
-    depth_path = os.path.join(
-        os.getcwd() + "/collected_data",
-        "traj{}/depth".format(success_counter),
-    )
-    os.mkdir(depth_path)
-    pose_dict_name = "pose{}".format(success_counter)
-    pose_dict_name = {}
-    my_world.set_simulation_dt(physics_dt=1.0 / 40.0, rendering_dt=1.0 / 10000.0)
+    traj_counter = 0
+
+    # my_world.set_simulation_dt(physics_dt=1.0 / 40.0, rendering_dt=1.0 / 10000.0)
+    
     while simulation_app.is_running():
         # Move to pose 1
-        new_object_pos = initial_object_pos_selector()
-        gripper_target_pose = gripper_inital_point_selector()
-        my_object.set_world_pose(np.array(new_object_pos), [1, 0, 0, 0])
-        pose1 = gripper_target_pose
-        while init_dist > 0.01:
-            # print("my_world.current_time_step_index", my_world.current_time_step_index)
-            init_dist, goal_reached, ee_twist = move_to_goal(
-                robot_interface, lite_controller, pose1
-            )
+        while traj_counter < 10:
+            my_world.reset()
             robot_interface.update_robot_model()
-            my_world.step(render=False)
-            # time.sleep(1.0)
-        print("Reached goal")
-        # Move to pose 2
-        pose2 = sm.SE3.Tx(0.5) * pose1
-        print("Final grasp: ", pose2)
-        
-        while final_dist > 0.1:
+            my_world.step(render=True)
+            new_object_pos = initial_object_pos_selector()
+            pose1 = gripper_inital_point_selector()
+            my_object.set_world_pose(np.array(new_object_pos), [1, 0, 0, 0])
             
-            final_dist, goal_reached, ee_twist = move_to_goal(
-                robot_interface, lite_controller, pose2
-            )
-            robot_interface.update_robot_model()
-
-            # Save RGB and Depth images
-            print("my_world.current_time_step_index", my_world.current_time_step_index)
-            current_data = robot_interface.get_camera_data()
-            rgb_image = cv2.cvtColor(current_data["rgb"][:, :, 0:3], cv2.COLOR_BGR2RGB)
-            cv2.imwrite("collected_data/traj{}/rgb/{}.png".format(success_counter,
-                    step_counter), rgb_image)
-            cv2.imwrite("collected_data/traj{}/depth/{}.png".format(success_counter,
-                    step_counter), current_data["depth"])
-
-            pose_dict_name[step_counter] = {}
-            pose_dict_name[step_counter]["ee_twist"] = ee_twist
-            pose_dict_name[step_counter]["joint_pos"] = robot_sim.get_joint_positions()
-
-            my_world.step(render=False)
-            step_counter += 1
-            print("distance_len: ", final_dist)
-     
-        print("Reached goal")
-        
-        np.save(
-            "collected_data/traj{}/pose.npy".format(success_counter),
-            pose_dict_name,
-        )
-
+            init_dist = 1
+            # pose1 = gripper_target_pose
+            
+            while init_dist > 0.03:
+                print("my_world.current_time_step_index", my_world.current_time_step_index)
+                init_dist, goal_reached, ee_twist = move_to_goal(
+                    robot_interface, lite_controller, pose1
+                )
+                robot_interface.update_robot_model()
+                my_world.step(render=True)
+            print("Reached goal")
+            if traj_counter == 0:
+                for i in range(2):
+                    gt = robot_interface.get_camera_data()
+                    print("gt: ", gt["rgb"].shape)
+                    my_world.step(render=True)
+            grasp_pose = wTgrasp_finder(suc_grasps, robot_interface.robot_model, new_object_pos)
+            print("grasp_pose: ", grasp_pose)
+            while step_counter < 300:
+                image_array, joint_array = predict_input_processing(robot_interface, robot_sim, device)
+                # print("my_world.current_time_step_index", my_world.current_time_step_index)
+                next_action, lstm_state = policy.predict(
+                    image_array, joint_array, lstm_state)
+                print("network output: ", next_action[:-1])
+                ee_twist, error_t, error_rpy = lite_controller.wTeegoal_2_eetwist(grasp_pose)
+                print("controller output: ", ee_twist)
+                print("---------------------------------")
+                # qd = lite_controller.ee_twist_2_qd(next_action[:-1])
+                qd = lite_controller.ee_twist_2_qd(ee_twist)
+                robot_interface.move_joints(qd)
+                robot_interface.update_robot_model()
+                my_world.step(render=True)
+                step_counter += 1
+                # print("step_counter", step_counter)
+            step_counter = 0
+            traj_counter += 1
+            
         # Exit simulation
         break
 
@@ -184,4 +166,13 @@ if __name__ == "__main__":
     with open('simulation_config.yaml') as f:
         simulation_config = yaml.load(f, Loader=SafeLoader)
         print("simulation config: ", simulation_config)
-    main(simulation_config)
+    with open('config.yaml') as f:
+        network_config = yaml.load(f, Loader=SafeLoader)
+        print("network config: ", network_config)
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    policy = Policy_twist(network_config, device)
+    model_path = "saved_models/policy.pt"
+    policy.load_state_dict(torch.load(model_path))
+
+    main(simulation_config, policy)

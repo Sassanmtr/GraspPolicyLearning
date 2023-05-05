@@ -1,27 +1,29 @@
 import sys
 sys.path.append('/home/mokhtars/Documents/bc_network')
+from pathlib import Path
 import pathlib
 import time
-import numpy as np
 import yaml
+import torch
 from yaml.loader import SafeLoader
+import numpy as np
 import spatialmath as sm
-from utils.helpers import *
 from omni.isaac.kit import SimulationApp
+from utils.helpers import *
+from bc_network.bcnet import Policy, ResNet_Policy_twist, Policy_twist
 
+HOME = str(Path.home())
+print("HOME: ", HOME)
 
-def main(config):
+def main(config, policy, lstm_state=None, lstm_state2=None):
     simulation_app = SimulationApp({"headless": False})
     from omni.isaac.core import World
     from omni.isaac.core.robots import Robot
     from omni.isaac.core.prims.xform_prim import XFormPrim
-    from omni.isaac.core.prims.xform_prim_view import XFormPrimView
     from omni.isaac.core.utils.stage import add_reference_to_stage
     from omni.isaac.core.utils.nucleus import get_assets_root_path
     from omni.physx.scripts import utils  # type: ignore
     import omni.usd
-    from omni.isaac.synthetic_utils import SyntheticDataHelper
-    from omni.kit.viewport_legacy import get_viewport_interface
     from src.fmm_isaac import FmmIsaacInterface
     from fmm_control_lite.fmm_control import FmmQPControl
 
@@ -40,9 +42,10 @@ def main(config):
     robot_sim = my_world.scene.add(
         Robot(prim_path="/World/FMM", name="fmm", position=[0, 0, 0])
     )
+
     # Initialize Env
     add_reference_to_stage(
-        usd_path="home/mokhtars/Documents/isaac-fmm/models/hospital.usd",
+        usd_path=HOME + "/Documents/isaac-fmm/models/hospital.usd",
         prim_path="/World/Hospital",
     )
     my_world.scene.add(
@@ -67,8 +70,6 @@ def main(config):
         )
     )
 
-
-
     print("Adding PHYSICS to ShapeNet model")
     stage = omni.usd.get_context().get_stage()
     prim = stage.DefinePrim("/World/Hospital/object", "Xform")
@@ -76,7 +77,6 @@ def main(config):
     utils.setRigidBody(prim, shape_approximation, False)
     print("CHECK mesh: ", my_world.scene.object_exists(name="fancy_bowl"))
 
-    
     # Initialize Controller
     my_world.reset()
     robot_interface = FmmIsaacInterface(robot_sim)
@@ -88,83 +88,56 @@ def main(config):
     my_world.reset()
     my_world.initialize_physics()
     my_world.play()
+    
+    step_counter = 0
+    traj_counter = 0
 
-    EE_POSE = sm.SE3(
-        np.array(
-            [
-                [0.84132622, -0.00711519, 0.54048087, 1.46307772],
-                [0.00374581, -0.9998126, -0.01899292, -0.13671148],
-                [0.54051472, 0.01800378, -0.8411419, 0.979675],
-                [0.0, 0.0, 0.0, 1.0],
-            ]
-        ),
-        check=False,
-    )
-    my_world.step(render=True)
-    # Detecting the camera
-    my_camera = my_world.scene.add(
-        XFormPrimView(
-            prim_paths_expr="/World/FMM/wrist_camera/Camera",
-            name="fancy_camera",
-        )
-    )
-    print("CHECK camera: ", my_world.scene.object_exists(name="fancy_camera"))
-    print(my_camera.get_world_poses()[0])
-    viewport_interface = get_viewport_interface()
-    viewport_handle = viewport_interface.create_instance()
-    viewport_window = viewport_interface.get_viewport_window(viewport_handle)
-    viewport_window.set_active_camera("/World/FMM/wrist_camera/Camera")
-    viewport_window.set_texture_resolution(500, 300)
-    viewport_window.set_window_pos(500, 500)
-    viewport_window.set_window_size(500, 300)
-    data_helper = SyntheticDataHelper()
-    #  Camera matrix parameters
-    width = 512
-    height = 300
-    focal_length = 1.93
-    horiz_aperture = 2.682
-    vert_aperture = 1.509
-    fx = height * focal_length / vert_aperture
-    fy = width * focal_length / horiz_aperture
-    x0 = height * 0.5
-    y0 = width * 0.5
-
+    # my_world.set_simulation_dt(physics_dt=1.0 / 40.0, rendering_dt=1.0 / 10000.0)
+    
     while simulation_app.is_running():
         # Move to pose 1
-        new_object_pos = initial_object_pos_selector()
-        gripper_target_pose = gripper_inital_point_selector()
-        my_object.set_world_pose(np.array(new_object_pos), [1, 0, 0, 0])
-        pose1 = EE_POSE
-        goal_reached = False
-        while not goal_reached:
-            print("my_world.current_time_step_index", my_world.current_time_step_index)
-            gt = data_helper.get_groundtruth(
-                sensor_names=["rgb"],
-                viewport=viewport_window,
-                wait_for_sensor_data=0.1
-            )
-            # gt = data_helper.get_pose()
-            gt = data_helper.get_semantic_ids()
-            goal_reached, ee_twist = move_to_goal(
-                robot_interface, lite_controller, pose1
-            )
+        while traj_counter < 10:
+            my_world.reset()
             robot_interface.update_robot_model()
             my_world.step(render=True)
-            # time.sleep(1.0)
-        print("Reached goal")
-
-        # Move to pose 2
-        pose2 = sm.SE3.Ty(0.5) * pose1
-        goal_reached = False
-        while not goal_reached:
-            goal_reached, ee_twist = move_to_goal(
-                robot_interface, lite_controller, pose2
-            )
-            robot_interface.update_robot_model()
-            my_world.step(render=True)
-            # time.sleep(1.0)
-        print("Reached goal")
-
+            new_object_pos = initial_object_pos_selector()
+            pose1 = gripper_inital_point_selector()
+            my_object.set_world_pose(np.array(new_object_pos), [1, 0, 0, 0])
+            init_dist = 1
+            # pose1 = gripper_target_pose
+            
+            while init_dist > 0.03:
+                print("my_world.current_time_step_index", my_world.current_time_step_index)
+                init_dist, goal_reached, ee_twist = move_to_goal(
+                    robot_interface, lite_controller, pose1
+                )
+                robot_interface.update_robot_model()
+                my_world.step(render=True)
+            print("Reached goal")
+            if traj_counter == 0:
+                for i in range(2):
+                    gt = robot_interface.get_camera_data()
+                    print("gt: ", gt["rgb"].shape)
+                    my_world.step(render=True)
+            grasp_pose = wTgrasp_finder(suc_grasps, robot_interface.robot_model, new_object_pos)
+            while step_counter < 400:
+                rgb_array, depth_array, joint_array = resnet_predict_input_processing(robot_interface, robot_sim, device)
+                # print("my_world.current_time_step_index", my_world.current_time_step_index)
+                next_action, lstm_state, lstm_state2 = policy.predict(
+                    rgb_array, depth_array, joint_array, lstm_state, lstm_state2)
+                print("network output: ", next_action[:-1])
+                ee_twist, error_t, error_rpy = lite_controller.wTeegoal_2_eetwist(grasp_pose)
+                print("controller output: ", ee_twist)
+                print("---------------------------------")
+                qd = lite_controller.ee_twist_2_qd(next_action[:-1])
+                robot_interface.move_joints(qd)
+                robot_interface.update_robot_model()
+                my_world.step(render=True)
+                step_counter += 1
+                # print("step_counter", step_counter)
+            step_counter = 0
+            traj_counter += 1
+            
         # Exit simulation
         break
 
@@ -180,11 +153,23 @@ def move_to_goal(interface, controller, goal_pose):
     distance_lin = np.linalg.norm(error_t)
     distance_ang = np.linalg.norm(error_rpy)
     goal_reached = distance_lin < 0.02 and distance_ang < 0.01
-    return goal_reached, ee_twist
+    
+    return distance_lin, goal_reached, ee_twist
+
 
 
 if __name__ == "__main__":
+
     with open('simulation_config.yaml') as f:
         simulation_config = yaml.load(f, Loader=SafeLoader)
         print("simulation config: ", simulation_config)
-    main(simulation_config)
+    with open('config.yaml') as f:
+        network_config = yaml.load(f, Loader=SafeLoader)
+        print("network config: ", network_config)
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    policy = ResNet_Policy_twist(network_config, device)
+    model_path = "saved_models/policy_resnet.pt"
+    policy.load_state_dict(torch.load(model_path))
+
+    main(simulation_config, policy)
