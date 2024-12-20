@@ -1,0 +1,1109 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<robot name="fmm_full">
+
+    <!-- Materials -->
+    <material name="dark_grey">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+    </material>
+    <material name="light_grey">
+        <color rgba="0.4 0.4 0.4 1.0"/>
+    </material>
+    <material name="red">
+        <color rgba="0.8 0.0 0.0 1.0"/>
+    </material>
+    <material name="white">
+        <color rgba="0.9 0.9 0.9 1.0"/>
+    </material>
+    <material name="yellow">
+        <color rgba="0.8 0.8 0.0 1.0"/>
+    </material>
+    <material name="black">
+        <color rgba="0.15 0.15 0.15 1.0"/>
+    </material>
+    <material name="aluminum">
+        <color rgba="0.5 0.5 0.5 1"/>
+    </material>
+    <material name="plastic">
+        <color rgba="0.1 0.1 0.1 1"/>
+    </material>
+    <material name="camera_aluminium">
+        <color rgba="0.5 0.5 0.5 1"/>
+    </material>
+
+    <!-- - - - - - - - - - - - - - BASE - - - - - - - - - - - - - -->
+
+    <!-- Dummy links for base movement -->
+    <link name="dummy_x_link">
+        <inertial>
+            <mass value="0.001"/>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <inertia ixx="1e-09" ixy="0.0" ixz="0.0" iyy="1e-09" iyz="0.0" izz="1e-09"/>
+        </inertial>
+    </link>
+    <joint name="dummy_x_joint" type="prismatic">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <axis xyz="1 0 0"/>
+        <dynamics damping="0.0" friction="0.0"/>
+        <limit velocity="1.0" effort="30"/>
+        <parent link="dummy_x_link"/>
+        <child link="dummy_y_link"/>
+    </joint>
+
+    <link name="dummy_y_link">
+        <inertial>
+            <mass value="0.001"/>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <inertia ixx="1e-09" ixy="0.0" ixz="0.0" iyy="1e-09" iyz="0.0" izz="1e-09"/>
+        </inertial>
+    </link>
+    <joint name="dummy_y_joint" type="prismatic">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <axis xyz="0 1 0"/>
+        <dynamics damping="0.0" friction="0.0"/>
+        <limit velocity="1.0" effort="30"/>
+        <parent link="dummy_y_link"/>
+        <child link="dummy_z_link"/>
+    </joint>
+
+    <link name="dummy_z_link">
+        <inertial>
+            <mass value="0.001"/>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <inertia ixx="1e-09" ixy="0.0" ixz="0.0" iyy="1e-09" iyz="0.0" izz="1e-09"/>
+        </inertial>
+    </link>
+    <joint name="dummy_z_joint" type="revolute">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <axis xyz="0 0 1"/>
+        <dynamics damping="0.0" friction="0.0"/>
+        <limit velocity="1.0" effort="30"/>
+        <parent link="dummy_z_link"/>
+        <child link="base_link"/>
+    </joint>
+
+    <!-- Base -->
+    <link name="base_link"/>
+    <joint name="base_link_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <parent link="base_link"/>
+        <child link="chassis_link"/>
+    </joint>
+
+    <!-- Chassis -->
+    <link name="chassis_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/body.stl"/>
+            </geometry>
+            <material name="black"/>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/body-collision-simple.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin rpy="1.57079632679 0 1.57079632679" xyz="0.012 0.002 0.067"/>
+            <mass value="165.304"/>
+            <inertia ixx="4.4744" ixy="0.03098" ixz="0.003647" iyy="7.1624" iyz="0.1228" izz="4.6155"/>
+        </inertial>
+    </link>
+
+    <!-- Left Side Cover -->
+    <link name="left_side_cover_link">
+        <visual>
+            <origin rpy="0 0 3.14159265359" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/side-cover.stl"/>
+            </geometry>
+            <material name="yellow"/>
+        </visual>
+    </link>
+    <joint name="left_side_cover_link_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <parent link="chassis_link"/>
+        <child link="left_side_cover_link"/>
+    </joint>
+
+    <!-- Right Side Cover -->
+    <link name="right_side_cover_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/side-cover.stl"/>
+            </geometry>
+            <material name="yellow"/>
+        </visual>
+    </link>
+    <joint name="right_side_cover_link_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <parent link="chassis_link"/>
+        <child link="right_side_cover_link"/>
+    </joint>
+
+    <!-- Front Cover -->
+    <link name="front_cover_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/end-cover.stl"/>
+            </geometry>
+            <material name="black"/>
+        </visual>
+    </link>
+    <joint name="front_cover_link_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <parent link="chassis_link"/>
+        <child link="front_cover_link"/>
+    </joint>
+
+    <!-- Rear Cover -->
+    <link name="rear_cover_link">
+        <visual>
+            <origin rpy="0 0 3.14159265359" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/end-cover.stl"/>
+            </geometry>
+            <material name="black"/>
+        </visual>
+    </link>
+    <joint name="rear_cover_link_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <parent link="chassis_link"/>
+        <child link="rear_cover_link"/>
+    </joint>
+
+    <!-- Front Lights -->
+    <link name="front_lights_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/lights.stl"/>
+            </geometry>
+            <material name="white"/>
+        </visual>
+    </link>
+    <joint name="front_lights_link_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <parent link="chassis_link"/>
+        <child link="front_lights_link"/>
+    </joint>
+
+    <!-- Rear Lights -->
+    <link name="rear_lights_link">
+        <visual>
+            <origin rpy="0 0 3.14159265359" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/lights.stl"/>
+            </geometry>
+            <material name="red"/>
+        </visual>
+    </link>
+    <joint name="rear_lights_link_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <parent link="chassis_link"/>
+        <child link="rear_lights_link"/>
+    </joint>
+
+    <!-- Top Link -->
+    <link name="top_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/top.stl"/>
+            </geometry>
+            <material name="black"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/top.stl"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="top_link_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <parent link="chassis_link"/>
+        <child link="top_link"/>
+    </joint>
+
+    <!-- Axle -->
+    <link name="axle_link">
+        <visual>
+            <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/axle.stl"/>
+            </geometry>
+            <material name="black"/>
+        </visual>
+    </link>
+    <joint name="axle_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0.05"/>
+        <parent link="chassis_link"/>
+        <child link="axle_link"/>
+    </joint>
+
+    <!-- IMU -->
+    <link name="imu_link">
+        <inertial>
+            <mass value="0.001"/>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <inertia ixx="1e-09" ixy="0.0" ixz="0.0" iyy="1e-09" iyz="0.0" izz="1e-09"/>
+        </inertial>
+    </link>
+    <joint name="imu_joint" type="fixed">
+        <parent link="chassis_link"/>
+        <child link="imu_link"/>
+        <origin rpy="0 0 0" xyz="0.2085 -0.2902 0.1681"/>
+    </joint>
+
+    <!-- Front Lidar -->
+    <link name="front_lidar">
+        <inertial>
+            <mass value="0.130" />
+            <origin xyz="0 0 0" />
+            <inertia ixx="8.016663460000002e-05" ixy="0.0" ixz="0.0" iyy="8.016663460000002e-05" iyz="0.0" izz="5.4166645000000014e-05" />
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <!-- Origin of this mesh is the focal point of the LIDAR. -->
+                <mesh filename="package://isaac-fmm/meshes/ust-10lx.stl" />
+            </geometry>
+            <material name="dark_grey" />
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 -0.0122" rpy="0 0 0" />
+            <geometry>
+                <box size="0.05 0.05 0.07" />
+            </geometry>
+        </collision> -->
+    </link>
+    <joint name="front_lidar_joint" type="fixed">
+        <origin xyz="0.3932 0 0.2330" rpy="0 0 0" />
+        <parent link="chassis_link" />
+        <child link="front_lidar" />
+    </joint>
+
+    <!-- Rear Lidar -->
+    <link name="rear_lidar">
+        <inertial>
+            <mass value="0.130" />
+            <origin xyz="0 0 0" />
+            <inertia ixx="8.016663460000002e-05" ixy="0.0" ixz="0.0" iyy="8.016663460000002e-05" iyz="0.0" izz="5.4166645000000014e-05" />
+        </inertial>
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <!-- Origin of this mesh is the focal point of the LIDAR. -->
+                <mesh filename="package://isaac-fmm/meshes/ust-10lx.stl" />
+            </geometry>
+            <material name="dark_grey" />
+        </visual>
+        <!-- <collision>
+            <origin xyz="0 0 -0.0122" rpy="0 0 0" />
+            <geometry>
+                <box size="0.05 0.05 0.07" />
+            </geometry>
+        </collision> -->
+    </link>
+    <joint name="rear_lidar_joint" type="fixed">
+        <origin xyz="-0.3932 0 0.2330" rpy="0 0 3.14159265359" />
+        <parent link="chassis_link" />
+        <child link="rear_lidar" />
+    </joint>
+
+    <!-- Mid Mount -->
+    <link name="mid_mount"/>
+    <joint name="mid_mount_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="mid_mount"/>
+        <origin rpy="0 0 0" xyz="0 0 0.28"/>
+    </joint>
+
+    <!-- - - - - - - - - - - - - - EWELLIX LIFT - - - - - - - - - - - - - -->
+
+    <!-- Lift base link -->
+    <link name="ewellix_lift_base_link">
+        <visual>
+            <origin rpy="0 0 1.5707963267948966" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/ewellix_lift_base_500mm.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <material name="grey">
+                <color rgba="0.7 0.7 0.7 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin rpy="0 0 1.5707963267948966" xyz="0.0 0 0.0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/ewellix_lift_base_500mm.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="20"/>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <inertia ixx="1e-1" ixy="0" ixz="0" iyy="1e-1" iyz="0" izz="1e-1"/>
+        </inertial>
+    </link>
+    <joint name="ewellix_lift_base_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0.1 0 0.28"/>
+        <parent link="top_link"/>
+        <child link="ewellix_lift_base_link"/>
+    </joint>
+
+    <!-- Lift top link -->
+    <link name="ewellix_lift_top_link">
+        <visual>
+            <origin rpy="0 0 -1.5707963267948966" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/ewellix_lift_top_500mm.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <material name="grey">
+                <color rgba="0.7 0.7 0.7 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin rpy="0 0 -1.5707963267948966" xyz="0.0 0 0.0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/ewellix_lift_top_500mm.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="2"/>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <inertia ixx="0.2e-1" ixy="0" ixz="0" iyy="0.2e-1" iyz="0" izz="0.2e-1"/>
+        </inertial>
+    </link>
+    <joint name="ewellix_lift_top_joint" type="prismatic">
+        <parent link="ewellix_lift_base_link"/>
+        <child link="ewellix_lift_top_link"/>
+        <origin rpy="0 0 0" xyz="0 0 0.522"/>
+        <limit effort="100000" lower="0.0" upper="0.52" velocity="0.088"/>
+        <axis xyz="0 0 1"/>
+    </joint>
+
+    <!-- Ewellix SCU -->
+    <link name="ewellix_lift_scu">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/scu.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <material name="grey">
+                <color rgba="0.7 0.7 0.7 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0.0 0 0.0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/scu.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="ewellix_lift_scu_joint" type="fixed">
+        <origin rpy="1.5707963267948966 0 1.5707963267948966" xyz="0.2 0.0 0.0"/>
+        <parent link="ewellix_lift_base_link"/>
+        <child link="ewellix_lift_scu"/>
+    </joint>
+
+    <!-- Ewellix panda fix -->
+    <link name="ewellix_lift_panda_fix">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/bras_fixation.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <material name="grey_light">
+                <color rgba="0.9 0.9 0.9 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0.0 0 0.0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/bras_fixation.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="ewellix_lift_panda_fix_joint" type="fixed">
+        <origin rpy="0 0 1.5707963267948966" xyz="0.011 0.0 0"/>
+        <parent link="ewellix_lift_top_link"/>
+        <child link="ewellix_lift_panda_fix"/>
+    </joint>
+
+    <!-- Franka Controller -->
+    <link name="ewellix_lift_panda_controller">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/frankaController.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <material name="">
+                <color rgba="0.15 0.15 0.15 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0.0 0 0.0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/frankaController.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="ewellix_lift_panda_controller_joint" type="fixed">
+        <origin rpy="0 0 1.5707963267948966" xyz="-0.335 0.0 0.21"/>
+        <parent link="ewellix_lift_base_link"/>
+        <child link="ewellix_lift_panda_controller"/>
+    </joint>
+
+    <!-- Ewellix PC -->
+    <link name="ewellix_lift_pc">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.427 0.210 0.474"/>
+            </geometry>
+            <material name="">
+                <color rgba="0.15 0.15 0.15 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0.0 0 0.0"/>
+            <geometry>
+                <box size="0.427 0.210 0.474"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="ewellix_lift_pc_joint" type="fixed">
+        <origin rpy="1.5707963267948966 0 0" xyz="-0.30 0.0 0.1"/>
+        <parent link="ewellix_lift_base_link"/>
+        <child link="ewellix_lift_pc"/>
+    </joint>
+
+    <!-- Turret -->
+    <link name="turret_base_link">
+    </link>
+    <joint name="turret_base_joint" type="fixed">
+        <origin rpy="0 0 -1.570795" xyz="0.0126 0.001 0.461"/>
+        <parent link="ewellix_lift_top_link"/>
+        <child link="turret_base_link"/>
+    </joint>
+
+    <!-- Servos base -->
+    <link name="servos_base_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/servos_base.stl"/>
+            </geometry>
+            <material name="">
+                <color rgba="0.15 0.15 0.15 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/servos_base.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value="0.1"/>
+            <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+        </inertial>
+    </link>
+    <joint name="servos_base_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0.051000000000000004"/>
+        <parent link="turret_base_link"/>
+        <child link="servos_base_link"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="0" lower="-2.617" upper="2.617" velocity="0.785"/>
+    </joint>
+
+    <!-- Servo pan -->
+    <link name="servo_pan_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/MX_28T.stl"/>
+            </geometry>
+            <material name="">
+                <color rgba="0.15 0.15 0.15 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/MX_28T.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value="0.1"/>
+            <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+        </inertial>
+    </link>
+    <joint name="joint_2" type="fixed">
+        <!--origin xyz="0.04825 0 0.14203" rpy="0 0 0" /-->
+        <origin rpy="0 0 0" xyz="0 0.0108 0.01525"/>
+        <parent link="servos_base_link"/>
+        <child link="servo_pan_link"/>
+        <axis xyz="0 1 0"/>
+        <limit effort="0" lower="-1.575" upper="1.575" velocity="1.571"/>
+    </joint>
+
+    <!-- Servo Horn -->
+    <link name="servo_horn_link">
+        <visual>
+            <origin rpy="1.570795 0 0" xyz="0 0 0"/>
+            <!--origin xyz="0 0 0" rpy="0 0 0" /-->
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/servo_horn.stl"/>
+            </geometry>
+            <material name="">
+                <color rgba="0.15 0.15 0.15 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <origin rpy="1.570795 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/servo_horn.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value="0.1"/>
+            <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+        </inertial>
+    </link>
+    <joint name="servo_horn_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0.01825"/>
+        <parent link="servo_pan_link"/>
+        <child link="servo_horn_link"/>
+        <axis xyz="0 1 0"/>
+        <limit effort="0" lower="0" upper="2.617" velocity="1.571"/>
+    </joint>
+
+    <!-- Side Link -->
+    <link name="side_link">
+        <visual>
+            <origin rpy="1.570795 0 1.570795" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/side.stl"/>
+            </geometry>
+            <material name="">
+                <color rgba="0.15 0.15 0.15 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/side.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value="0.1"/>
+            <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+        </inertial>
+    </link>
+    <joint name="joint_4" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <parent link="servo_horn_link"/>
+        <child link="side_link"/>
+        <axis xyz="0 1 0"/>
+        <limit effort="0" lower="-1.745" upper="1.745" velocity="1.571"/>
+    </joint>
+
+    <!-- Tilt link -->
+    <link name="servo_tilt_link">
+        <visual>
+            <origin rpy="1.570795 0 1.570795" xyz="0 0 0.041600000000000005"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/MX_28T.stl"/>
+            </geometry>
+            <material name="">
+                <color rgba="0.15 0.15 0.15 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/MX_28T.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value="0.1"/>
+            <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+        </inertial>
+    </link>
+    <joint name="servo_pan_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <parent link="side_link"/>
+        <child link="servo_tilt_link"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="1000" lower="-3.14159" upper="3.14159" velocity="6.5"/>
+    </joint>
+
+    <!-- Hinge Link -->
+    <link name="hinge_link">
+        <visual>
+            <origin rpy="1.570795 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/hinge.stl"/>
+            </geometry>
+            <material name="">
+                <color rgba="0.15 0.15 0.15 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/hinge.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value="0.1"/>
+            <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+        </inertial>
+    </link>
+    <joint name="servo_tilt_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0.05025"/>
+        <parent link="servo_tilt_link"/>
+        <child link="hinge_link"/>
+        <axis xyz="1 0 0"/>
+        <limit effort="1000" lower="-1.570795" upper="1.570795" velocity="6.5"/>
+    </joint>
+
+    <!-- Top Plate -->
+    <link name="top_plate_link">
+        <visual>
+            <origin rpy="0 0 1.57" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/top_plate.stl"/>
+            </geometry>
+            <material name="">
+                <color rgba="0.15 0.15 0.15 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/top_plate.stl"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value="0.1"/>
+            <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+        </inertial>
+    </link>
+    <joint name="joint_7" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0.0298"/>
+        <parent link="hinge_link"/>
+        <child link="top_plate_link"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="0" lower="-0.31" upper="0.1" velocity="0.5"/>
+    </joint>
+
+    <!-- - - - - - - - - - - - - - FRANKA ARM - - - - - - - - - - - - - -->
+
+    <!-- Link0 -->
+    <link name="panda_link0">
+        <visual>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link0_simple.dae"/>
+            </geometry>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link0.stl"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="panda_joint_ewellix_lift_top_link" type="fixed">
+        <parent link="ewellix_lift_top_link"/>
+        <child link="panda_link0"/>
+        <origin rpy="0 0 0" xyz="0.276 0 -0.415"/>
+    </joint>
+
+    <!-- Link1 -->
+    <link name="panda_link1">
+        <visual>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link1_simple.dae"/>
+            </geometry>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link1.stl"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="panda_joint1" type="revolute">
+        <safety_controller k_position="100.0" k_velocity="40.0" soft_lower_limit="-2.8" soft_upper_limit="2.8"/>
+        <origin rpy="0 0 0" xyz="0 0 0.333"/>
+        <parent link="panda_link0"/>
+        <child link="panda_link1"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="87" lower="-2.8973" upper="2.8973" velocity="2.1750"/>
+    </joint>
+
+    <!-- Link2 -->
+    <link name="panda_link2">
+        <visual>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link2_simple.dae"/>
+            </geometry>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link2.stl"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="panda_joint2" type="revolute">
+        <safety_controller k_position="100.0" k_velocity="40.0" soft_lower_limit="-1.5" soft_upper_limit="1.5"/>
+        <origin rpy="-1.5707963267948966 0 0" xyz="0 0 0"/>
+        <parent link="panda_link1"/>
+        <child link="panda_link2"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="87" lower="-1.7628" upper="1.7628" velocity="2.1750"/>
+    </joint>
+
+    <!-- Link3 -->
+    <link name="panda_link3">
+        <visual>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link3_simple.dae"/>
+            </geometry>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link3.stl"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="panda_joint3" type="revolute">
+        <safety_controller k_position="100.0" k_velocity="40.0" soft_lower_limit="-2.8973" soft_upper_limit="2.8973"/>
+        <origin rpy="1.5707963267948966 0 0" xyz="0 -0.316 0"/>
+        <parent link="panda_link2"/>
+        <child link="panda_link3"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="87" lower="-2.8973" upper="2.8973" velocity="2.1750"/>
+    </joint>
+
+    <!-- Link4 -->
+    <link name="panda_link4">
+        <visual>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link4_simple.dae"/>
+            </geometry>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link4.stl"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="panda_joint4" type="revolute">
+        <safety_controller k_position="100.0" k_velocity="40.0" soft_lower_limit="-3.0718" soft_upper_limit="-0.0698"/>
+        <origin rpy="1.5707963267948966 0 0" xyz="0.0825 0 0"/>
+        <parent link="panda_link3"/>
+        <child link="panda_link4"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="87" lower="-3.0718" upper="-0.0698" velocity="2.1750"/>
+    </joint>
+
+    <!-- Link5 -->
+    <link name="panda_link5">
+        <visual>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link5_simple.dae"/>
+            </geometry>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link5.stl"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="panda_joint5" type="revolute">
+        <safety_controller k_position="100.0" k_velocity="40.0" soft_lower_limit="-2.8973" soft_upper_limit="2.8973"/>
+        <origin rpy="-1.5707963267948966 0 0" xyz="-0.0825 0.384 0"/>
+        <parent link="panda_link4"/>
+        <child link="panda_link5"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="12" lower="-2.8973" upper="2.8973" velocity="2.6100"/>
+    </joint>
+
+    <!-- Link6 -->
+    <link name="panda_link6">
+        <visual>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link6_simple.dae"/>
+            </geometry>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link6.stl"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="panda_joint6" type="revolute">
+        <safety_controller k_position="100.0" k_velocity="40.0" soft_lower_limit="-0.0175" soft_upper_limit="3.7525"/>
+        <origin rpy="1.5707963267948966 0 0" xyz="0 0 0"/>
+        <parent link="panda_link5"/>
+        <child link="panda_link6"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="12" lower="-0.0175" upper="3.7525" velocity="2.6100"/>
+    </joint>
+
+    <!-- Link7 -->
+    <link name="panda_link7">
+        <visual>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link7_simple.dae"/>
+            </geometry>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/link7.stl"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="panda_joint7" type="revolute">
+        <safety_controller k_position="100.0" k_velocity="40.0" soft_lower_limit="-2.8973" soft_upper_limit="2.8973"/>
+        <origin rpy="1.5707963267948966 0 0" xyz="0.088 0 0"/>
+        <parent link="panda_link6"/>
+        <child link="panda_link7"/>
+        <axis xyz="0 0 1"/>
+        <limit effort="12" lower="-2.8973" upper="2.8973" velocity="2.6100"/>
+    </joint>
+
+    <!-- Link8 -->
+    <link name="panda_link8">
+        <collision>
+            <origin rpy="3.141592653589793 1.5707963267948966 1.5707963267948966" xyz="0.0424 0.0424 -0.0250"/>
+            <geometry>
+                <cylinder length="0.01" radius="0.03"/>
+            </geometry>
+        </collision>
+        <collision>
+            <origin rpy="0 0 0" xyz="0.0424 0.0424 -0.02"/>
+            <geometry>
+                <sphere radius="0.03"/>
+            </geometry>
+        </collision>
+        <collision>
+            <origin rpy="0 0 0" xyz="0.0424 0.0424 -0.03"/>
+            <geometry>
+                <sphere radius="0.03"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="panda_joint8" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0.107"/>
+        <parent link="panda_link7"/>
+        <child link="panda_link8"/>
+    </joint>
+
+    <!-- Hand -->
+    <link name="panda_hand">
+        <visual>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/hand_simple.dae"/>
+            </geometry>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/hand.stl"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="panda_hand_joint" type="fixed">
+        <parent link="panda_link8"/>
+        <child link="panda_hand"/>
+        <origin rpy="0 0 -0.7853975" xyz="0 0 0"/>
+    </joint>
+
+    <!-- Wrist Mount -->
+    <link name="wrist_mount">
+        <visual>
+            <origin rpy="0 0 0" xyz="0.02 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/camera_wrist_mount.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+        </visual>
+    </link>
+    <joint name="wrist_mount_joint" type="fixed">
+        <parent link="panda_hand"/>
+        <child link="wrist_mount"/>
+        <origin rpy="0 0 0" xyz="-0.063 0 0.03"/>
+    </joint>
+
+    <!-- Wrist Camera -->
+    <link name="wrist_camera">
+        <visual>
+            <origin rpy="3.141592653589793 0 -3.141592653589793" xyz="0 0 -0.01"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/d415.stl"/>
+            </geometry>
+            <material name="camera_aluminium"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.02005 0.099 0.023"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="wrist_camera_joint" type="fixed">
+        <parent link="wrist_mount"/>
+        <child link="wrist_camera"/>
+        <origin rpy="-3.141592653589793 0 1.5707963267948966" xyz="0.01 0 0.025"/>
+    </joint>
+
+    <!-- Left Finger -->
+    <link name="panda_leftfinger">
+        <visual>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/finger_simple.dae"/>
+            </geometry>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/finger.stl"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="panda_finger_joint1" type="prismatic">
+        <parent link="panda_hand"/>
+        <child link="panda_leftfinger"/>
+        <origin rpy="0 0 0" xyz="0 0 0.0584"/>
+        <axis xyz="0 1 0"/>
+        <limit effort="20" lower="0.0" upper="0.04" velocity="0.2"/>
+    </joint>
+
+    <!-- Right Finger -->
+    <link name="panda_rightfinger">
+        <visual>
+            <origin rpy="0 0 3.141592653589793" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/finger_simple.dae"/>
+            </geometry>
+        </visual>
+        <collision>
+            <origin rpy="0 0 3.141592653589793" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/finger.stl"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="panda_finger_joint2" type="prismatic">
+        <parent link="panda_hand"/>
+        <child link="panda_rightfinger"/>
+        <origin rpy="0 0 0" xyz="0 0 0.0584"/>
+        <axis xyz="0 -1 0"/>
+        <limit effort="20" lower="0.0" upper="0.04" velocity="0.2"/>
+        <mimic joint="panda_finger_joint1"/>
+    </joint>
+
+    <!-- - - - - - - - - - - - - - CAMERA - - - - - - - - - - - - - -->
+
+    <!-- Camera bottom screw -->
+    <link name="camera_bottom_screw_frame"/>
+    <joint name="camera_joint" type="fixed">
+        <origin rpy="0 0 1.570795" xyz="0 0 0"/>
+        <parent link="top_plate_link"/>
+        <child link="camera_bottom_screw_frame"/>
+    </joint>
+
+    <!-- Camera -->
+    <link name="camera_link">
+        <visual>
+            <origin rpy="1.5707963267948966 0 1.5707963267948966" xyz="0.00987 -0.02 0"/>
+            <geometry>
+                <mesh filename="package://isaac-fmm/meshes/d415.stl"/>
+            </geometry>
+            <material name="camera_aluminium"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 -0.02 0"/>
+            <geometry>
+                <box size="0.02005 0.099 0.023"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="0.072"/>
+            <!-- The following are not reliable values, and should not be used for modeling -->
+            <origin xyz="0 0 0"/>
+            <inertia ixx="0.003881243" ixy="0.0" ixz="0.0" iyy="0.000498940" iyz="0.0" izz="0.003879257"/>
+        </inertial>
+    </link>
+    <joint name="camera_link_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0.02 0.0115"/>
+        <parent link="camera_bottom_screw_frame"/>
+        <child link="camera_link"/>
+    </joint>
+
+    <!-- Depth frame -->
+    <link name="camera_depth_frame"/>
+    <joint name="camera_depth_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <parent link="camera_link"/>
+        <child link="camera_depth_frame"/>
+    </joint>
+    <link name="camera_depth_optical_frame"/>
+    <joint name="camera_depth_optical_joint" type="fixed">
+        <origin rpy="-1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0"/>
+        <parent link="camera_depth_frame"/>
+        <child link="camera_depth_optical_frame"/>
+    </joint>
+
+    <!-- camera left IR joints and links -->
+    <link name="camera_infra1_frame"/>
+    <joint name="camera_infra1_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0.0 0"/>
+        <parent link="camera_link"/>
+        <child link="camera_infra1_frame"/>
+    </joint>
+    <link name="camera_infra1_optical_frame"/>
+    <joint name="camera_infra1_optical_joint" type="fixed">
+        <origin rpy="-1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0"/>
+        <parent link="camera_infra1_frame"/>
+        <child link="camera_infra1_optical_frame"/>
+    </joint>
+
+    <!-- camera right IR joints and links -->
+    <link name="camera_infra2_frame"/>
+    <joint name="camera_infra2_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 -0.055 0"/>
+        <parent link="camera_link"/>
+        <child link="camera_infra2_frame"/>
+    </joint>
+    <link name="camera_infra2_optical_frame"/>
+    <joint name="camera_infra2_optical_joint" type="fixed">
+        <origin rpy="-1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0"/>
+        <parent link="camera_infra2_frame"/>
+        <child link="camera_infra2_optical_frame"/>
+    </joint>
+
+    <!-- camera color joints and links -->
+    <link name="camera_color_frame"/>
+    <joint name="camera_color_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0.015 0"/>
+        <parent link="camera_link"/>
+        <child link="camera_color_frame"/>
+    </joint>
+    <link name="camera_color_optical_frame"/>
+    <joint name="camera_color_optical_joint" type="fixed">
+        <origin rpy="-1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0"/>
+        <parent link="camera_color_frame"/>
+        <child link="camera_color_optical_frame"/>
+    </joint>
+
+</robot>

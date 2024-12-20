@@ -1,0 +1,16 @@
+torch
+torchvision
+torchaudio
+spatialmath-python
+wandb
+h5py
+opencv-python
+roboticstoolbox-python
+qpsolvers
+osqp
+roma
+scipy
+plotly
+odfpy
+pandas
+seaborn
